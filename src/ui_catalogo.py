@@ -9,7 +9,7 @@ import models
 class CatalogoWindow(tk.Toplevel):
     def __init__(self, master: tk.Misc, on_change=None):
         super().__init__(master)
-        self.title("Catálogo de alimentos")
+        self.title("Gestión de alimentos")
         self.geometry("420x480")
         self.on_change = on_change
 
