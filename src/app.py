@@ -1,11 +1,19 @@
 from __future__ import annotations
 
+import sys
+from pathlib import Path
 import tkinter as tk
 from tkinter import messagebox
 
-from .db import get_connection, migrate
-from .seed import seed_if_empty
-from .ui_main import MainWindow
+if __package__ in (None, ""):
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    from src.db import get_connection, migrate
+    from src.seed import seed_if_empty
+    from src.ui_main import MainWindow
+else:
+    from .db import get_connection, migrate
+    from .seed import seed_if_empty
+    from .ui_main import MainWindow
 
 
 def main() -> None:
