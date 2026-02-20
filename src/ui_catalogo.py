@@ -4,7 +4,7 @@ import sqlite3
 import tkinter as tk
 from tkinter import messagebox, ttk
 
-import models
+from . import models
 
 
 class CatalogoWindow(tk.Toplevel):

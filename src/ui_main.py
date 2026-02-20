@@ -4,10 +4,10 @@ import sqlite3
 import tkinter as tk
 from tkinter import messagebox, simpledialog, ttk
 
-import models
-from ui_catalogo import CatalogoWindow
-from ui_jardines import JardinesWindow
-from ui_minutas import MinutaEditor
+from . import models
+from .ui_catalogo import CatalogoWindow
+from .ui_jardines import JardinesWindow
+from .ui_minutas import MinutaEditor
 
 
 class MainWindow(ttk.Frame):
