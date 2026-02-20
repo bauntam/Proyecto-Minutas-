@@ -1,0 +1,1 @@
+# Tkinter y sqlite3 vienen incluidos con Python estándar.
