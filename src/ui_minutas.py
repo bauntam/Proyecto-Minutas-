@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import tkinter as tk
-from tkinter import messagebox, simpledialog, ttk
+from tkinter import filedialog, messagebox, simpledialog, ttk
 
+import excel_minutas
 import models
 
 
@@ -255,6 +256,8 @@ class MinutasWindow(tk.Toplevel):
         ttk.Button(top, text="Nueva minuta", command=self.nueva_minuta).pack(side="left")
         ttk.Button(top, text="Abrir minuta", command=self.abrir_minuta).pack(side="left", padx=(8, 0))
         ttk.Button(top, text="Eliminar minuta", command=self.eliminar_minuta).pack(side="left", padx=(8, 0))
+        ttk.Button(top, text="Descargar plantilla Excel", command=self.descargar_plantilla).pack(side="left", padx=(8, 0))
+        ttk.Button(top, text="Importar Excel", command=self.importar_excel).pack(side="left", padx=(8, 0))
 
         self.counter_var = tk.StringVar()
         ttk.Label(top, textvariable=self.counter_var).pack(side="right")
@@ -317,3 +320,48 @@ class MinutasWindow(tk.Toplevel):
             self.refresh()
         except Exception:
             messagebox.showerror("Error", "No fue posible eliminar la minuta.", parent=self)
+
+    def descargar_plantilla(self) -> None:
+        file_path = filedialog.asksaveasfilename(
+            parent=self,
+            title="Guardar plantilla",
+            defaultextension=".xlsx",
+            filetypes=[("Excel", "*.xlsx")],
+            initialfile="plantilla_minutas.xlsx",
+        )
+        if not file_path:
+            return
+        try:
+            excel_minutas.export_template(file_path)
+            messagebox.showinfo("Plantilla creada", f"Plantilla guardada en:\n{file_path}", parent=self)
+        except RuntimeError as exc:
+            messagebox.showerror("Dependencia faltante", str(exc), parent=self)
+        except Exception:
+            messagebox.showerror("Error", "No fue posible generar la plantilla Excel.", parent=self)
+
+    def importar_excel(self) -> None:
+        file_path = filedialog.askopenfilename(
+            parent=self,
+            title="Seleccionar archivo Excel",
+            filetypes=[("Excel", "*.xlsx")],
+        )
+        if not file_path:
+            return
+        try:
+            summary = excel_minutas.import_minutas(file_path)
+            self.refresh()
+            message = (
+                f"Filas procesadas: {summary.rows_processed}\n"
+                f"Minutas creadas: {summary.minutas_created}\n"
+                f"Filas actualizadas en minutas existentes: {summary.minutas_updated}\n"
+                f"Alimentos cargados/actualizados: {summary.items_upserted}"
+            )
+            if summary.unknown_foods:
+                message += "\n\nAlimentos no encontrados en catálogo:\n- " + "\n- ".join(summary.unknown_foods)
+            messagebox.showinfo("Importación completada", message, parent=self)
+        except RuntimeError as exc:
+            messagebox.showerror("Dependencia faltante", str(exc), parent=self)
+        except ValueError as exc:
+            messagebox.showerror("Validación", str(exc), parent=self)
+        except Exception:
+            messagebox.showerror("Error", "No fue posible importar el archivo Excel.", parent=self)

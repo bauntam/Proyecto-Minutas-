@@ -1,1 +1,1 @@
-# Tkinter y sqlite3 vienen incluidos con Python estándar.
+openpyxl>=3.1.0
