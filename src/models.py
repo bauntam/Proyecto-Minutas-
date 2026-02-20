@@ -40,6 +40,13 @@ def create_alimento(nombre: str) -> int:
         return int(cursor.lastrowid)
 
 
+def delete_alimento(alimento_id: int) -> None:
+    with get_connection() as conn:
+        conn.execute("DELETE FROM minuta_items WHERE alimento_id = ?", (alimento_id,))
+        conn.execute("DELETE FROM alimentos WHERE id = ?", (alimento_id,))
+        conn.commit()
+
+
 def count_alimentos() -> int:
     with get_connection() as conn:
         return int(conn.execute("SELECT COUNT(*) FROM alimentos").fetchone()[0])

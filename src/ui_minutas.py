@@ -28,6 +28,7 @@ class MinutaEditorWindow(tk.Toplevel):
         self.nombre_var = tk.StringVar(value=nombre_inicial)
         ttk.Entry(top, textvariable=self.nombre_var, width=40).pack(side="left", padx=(6, 6))
         ttk.Button(top, text="Guardar nombre", command=self.save_nombre).pack(side="left")
+        ttk.Button(top, text="Eliminar minuta", command=self.delete_current_minuta).pack(side="left", padx=(8, 0))
 
         add_frame = ttk.LabelFrame(root, text="Agregar / actualizar alimento", padding=8)
         add_frame.pack(fill="x", pady=(10, 8))
@@ -67,6 +68,7 @@ class MinutaEditorWindow(tk.Toplevel):
         actions.pack(fill="x", pady=(8, 0))
         ttk.Button(actions, text="Editar gramos", command=self.edit_gramos).pack(side="left")
         ttk.Button(actions, text="Quitar alimento", command=self.remove_item).pack(side="left", padx=(8, 0))
+        ttk.Button(actions, text="Eliminar del catálogo", command=self.remove_alimento_catalogo).pack(side="left", padx=(8, 0))
 
         self.refresh_items()
 
@@ -84,6 +86,28 @@ class MinutaEditorWindow(tk.Toplevel):
             messagebox.showerror("Validación", str(exc), parent=self)
         except Exception:
             messagebox.showerror("Error", "No fue posible actualizar el nombre.", parent=self)
+
+
+    def delete_current_minuta(self) -> None:
+        minuta = models.get_minuta(self.minuta_id)
+        if not minuta:
+            messagebox.showwarning("Atención", "La minuta ya no existe.", parent=self)
+            self.destroy()
+            return
+
+        if not messagebox.askyesno(
+            "Confirmar",
+            f"¿Eliminar la minuta '{minuta['nombre']}'?",
+            parent=self,
+        ):
+            return
+
+        try:
+            models.delete_minuta(self.minuta_id)
+            messagebox.showinfo("Eliminada", "La minuta fue eliminada.", parent=self)
+            self.destroy()
+        except Exception:
+            messagebox.showerror("Error", "No fue posible eliminar la minuta.", parent=self)
 
     def refresh_items(self) -> None:
         self._alimentos = models.list_alimentos()
@@ -179,6 +203,25 @@ class MinutaEditorWindow(tk.Toplevel):
             )
         except Exception:
             messagebox.showerror("Error", "No fue posible actualizar gramos.", parent=self)
+
+
+    def remove_alimento_catalogo(self) -> None:
+        item = self._selected_item()
+        if not item:
+            return
+
+        if not messagebox.askyesno(
+            "Confirmar",
+            f"¿Eliminar '{item['alimento_nombre']}' del catálogo? También se quitará de todas las minutas.",
+            parent=self,
+        ):
+            return
+
+        try:
+            models.delete_alimento(item["alimento_id"])
+            self.refresh_items()
+        except Exception:
+            messagebox.showerror("Error", "No fue posible eliminar el alimento del catálogo.", parent=self)
 
     def remove_item(self) -> None:
         item = self._selected_item()

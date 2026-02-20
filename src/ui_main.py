@@ -59,7 +59,7 @@ class MainWindow(ttk.Frame):
         JardinesWindow(self.master, on_change=self.refresh_jardines)
 
     def open_catalogo(self) -> None:
-        CatalogoWindow(self.master)
+        CatalogoWindow(self.master, on_change=self.refresh_semana)
 
     def open_minutas(self) -> None:
         MinutasWindow(self.master, on_change=self.refresh_semana)
