@@ -3,9 +3,9 @@ from __future__ import annotations
 import tkinter as tk
 from tkinter import messagebox
 
-from db import get_connection, migrate
-from seed import seed_if_empty
-from ui_main import MainWindow
+from .db import get_connection, migrate
+from .seed import seed_if_empty
+from .ui_main import MainWindow
 
 
 def main() -> None:
