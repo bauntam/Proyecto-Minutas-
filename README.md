@@ -1,5 +1,17 @@
 # Proyecto-Minutas-
-Crear pedidos según diferentes Minutas 
-## Mi primera aplicación
 
-Estoy aprendiendo a crear aplicaciones desde cero.
+Crear pedidos según diferentes minutas.
+
+## Ejecución
+
+Método oficial:
+
+```bash
+python -m src.main
+```
+
+Launcher opcional compatible:
+
+```bash
+python app.py
+```
