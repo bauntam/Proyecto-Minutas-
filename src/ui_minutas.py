@@ -41,16 +41,17 @@ class MinutaEditorWindow(tk.Toplevel):
             width=30,
         )
         self.combo.grid(row=0, column=1, sticky="we", padx=(6, 8))
+        ttk.Button(add_frame, text="Nuevo alimento", command=self.add_new_alimento).grid(row=0, column=2)
 
-        ttk.Label(add_frame, text="Gramos 1-2 años:").grid(row=0, column=2, sticky="w")
+        ttk.Label(add_frame, text="Gramos 1-2 años:").grid(row=0, column=3, sticky="w")
         self.gramos_1_2_var = tk.StringVar()
-        ttk.Entry(add_frame, textvariable=self.gramos_1_2_var, width=10).grid(row=0, column=3, padx=(6, 8))
+        ttk.Entry(add_frame, textvariable=self.gramos_1_2_var, width=10).grid(row=0, column=4, padx=(6, 8))
 
-        ttk.Label(add_frame, text="Gramos 3-5 años:").grid(row=0, column=4, sticky="w")
+        ttk.Label(add_frame, text="Gramos 3-5 años:").grid(row=0, column=5, sticky="w")
         self.gramos_3_5_var = tk.StringVar()
-        ttk.Entry(add_frame, textvariable=self.gramos_3_5_var, width=10).grid(row=0, column=5, padx=(6, 8))
+        ttk.Entry(add_frame, textvariable=self.gramos_3_5_var, width=10).grid(row=0, column=6, padx=(6, 8))
 
-        ttk.Button(add_frame, text="Agregar/Actualizar", command=self.add_item).grid(row=0, column=6)
+        ttk.Button(add_frame, text="Agregar/Actualizar", command=self.add_item).grid(row=0, column=7)
         add_frame.grid_columnconfigure(1, weight=1)
 
         self.tree = ttk.Treeview(root, columns=("alimento", "g12", "g35"), show="headings", height=12)
@@ -120,6 +121,20 @@ class MinutaEditorWindow(tk.Toplevel):
             )
         except Exception:
             messagebox.showerror("Error", "No fue posible agregar el alimento.", parent=self)
+
+    def add_new_alimento(self) -> None:
+        nombre = simpledialog.askstring("Nuevo alimento", "Nombre del nuevo alimento:", parent=self)
+        if nombre is None:
+            return
+        try:
+            models.create_alimento(nombre)
+            self.refresh_items()
+            self.alimento_var.set(models.normalize_name(nombre))
+            self.combo.focus_set()
+        except ValueError as exc:
+            messagebox.showerror("Validación", str(exc), parent=self)
+        except Exception:
+            messagebox.showerror("Error", "No fue posible crear el alimento.", parent=self)
 
     def _selected_item(self):
         selected = self.tree.selection()
