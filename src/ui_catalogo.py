@@ -28,12 +28,46 @@ class CatalogoWindow(tk.Toplevel):
         self.listbox = tk.Listbox(frame)
         self.listbox.pack(fill="both", expand=True)
 
+        actions = ttk.Frame(frame)
+        actions.pack(fill="x", pady=(8, 0))
+        ttk.Button(actions, text="Eliminar alimento", command=self.remove_alimento).pack(side="left")
+
+        self._alimentos = []
         self.refresh()
 
     def refresh(self) -> None:
+        self._alimentos = models.list_alimentos()
         self.listbox.delete(0, tk.END)
-        for row in models.list_alimentos():
+        for row in self._alimentos:
             self.listbox.insert(tk.END, row["nombre"])
+
+
+    def _selected_alimento(self):
+        selected = self.listbox.curselection()
+        if not selected:
+            messagebox.showwarning("Atención", "Selecciona un alimento.", parent=self)
+            return None
+        return self._alimentos[selected[0]]
+
+    def remove_alimento(self) -> None:
+        alimento = self._selected_alimento()
+        if not alimento:
+            return
+
+        if not messagebox.askyesno(
+            "Confirmar",
+            f"¿Eliminar el alimento '{alimento['nombre']}'? También se quitará de todas las minutas.",
+            parent=self,
+        ):
+            return
+
+        try:
+            models.delete_alimento(alimento["id"])
+            self.refresh()
+            if self.on_change:
+                self.on_change()
+        except Exception:
+            messagebox.showerror("Error", "No fue posible eliminar el alimento.", parent=self)
 
     def add_alimento(self) -> None:
         try:
