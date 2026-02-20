@@ -16,6 +16,11 @@ Está pensada para una primera entrega usable y estable.
   - Agregar ingredientes desde catálogo con cantidad en gramos (> 0).
   - Editar gramos y quitar ingredientes.
   - Listar y abrir minutas para edición.
+
+- **Minutas (importación por Excel)**
+  - Descargar plantilla `.xlsx` con alimentos en orden alfabético.
+  - Importar minutas masivamente desde Excel (nombre de minuta + gramos para 2 grupos etarios).
+  - Compara el nombre del alimento contra el catálogo y carga los gramos automáticamente.
 - **Persistencia local**
   - SQLite en `data/minutas.db`.
   - Los datos se conservan al cerrar y volver a abrir la app.
@@ -31,6 +36,7 @@ src/
   ui_catalogo.py   # Gestión de alimentos
   ui_jardines.py   # Gestión de jardines
   ui_minutas.py    # Editor de minutas e ingredientes
+  excel_minutas.py # Plantilla e importación de minutas por Excel
   seed.py          # Catálogo inicial
 requirements.txt
 README.md
@@ -95,3 +101,23 @@ python src\app.py
 ```powershell
 python src\seed.py
 ```
+
+
+## Importar minutas desde Excel
+
+En **Gestión de minutas** ahora hay dos botones:
+
+- **Descargar plantilla Excel**: genera un archivo con columnas:
+  - `minuta`
+  - `alimento`
+  - `gramos_grupo_1`
+  - `gramos_grupo_2`
+- **Importar Excel**: lee el archivo y crea/actualiza minutas y gramos para ambos grupos etarios.
+
+Reglas:
+
+- Los nombres de alimentos deben coincidir con el catálogo (comparación por texto normalizado).
+- Cada fila representa un alimento dentro de una minuta.
+- Si la minuta no existe, se crea automáticamente.
+- Si la minuta ya existe, se actualizan sus alimentos.
+- Los gramos de ambos grupos deben ser números mayores a 0.
