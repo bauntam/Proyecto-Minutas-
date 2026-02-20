@@ -86,7 +86,7 @@ class JardinesWindow(tk.Toplevel):
             return
         if not messagebox.askyesno(
             "Confirmar",
-            f"¿Eliminar el jardín '{jardin['nombre']}' y todas sus minutas?",
+            f"¿Eliminar el jardín '{jardin['nombre']}' y su pedido semanal?",
             parent=self,
         ):
             return
