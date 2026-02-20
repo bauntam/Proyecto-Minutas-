@@ -1,0 +1,1 @@
+# No external dependencies required for MVP (Tkinter and sqlite3 are in Python stdlib)
