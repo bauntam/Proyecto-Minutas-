@@ -11,7 +11,7 @@ class MinutaEditorWindow(tk.Toplevel):
         super().__init__(master)
         self.minuta_id = minuta_id
         self.title("Editor de minuta")
-        self.geometry("640x500")
+        self.geometry("760x520")
 
         self._alimentos = models.list_alimentos()
         self._items = []
@@ -29,7 +29,7 @@ class MinutaEditorWindow(tk.Toplevel):
         ttk.Entry(top, textvariable=self.nombre_var, width=40).pack(side="left", padx=(6, 6))
         ttk.Button(top, text="Guardar nombre", command=self.save_nombre).pack(side="left")
 
-        add_frame = ttk.LabelFrame(root, text="Agregar / actualizar ingrediente", padding=8)
+        add_frame = ttk.LabelFrame(root, text="Agregar / actualizar alimento", padding=8)
         add_frame.pack(fill="x", pady=(10, 8))
 
         ttk.Label(add_frame, text="Alimento:").grid(row=0, column=0, sticky="w")
@@ -38,27 +38,34 @@ class MinutaEditorWindow(tk.Toplevel):
             add_frame,
             textvariable=self.alimento_var,
             values=[a["nombre"] for a in self._alimentos],
-            width=38,
+            width=30,
         )
         self.combo.grid(row=0, column=1, sticky="we", padx=(6, 8))
 
-        ttk.Label(add_frame, text="Gramos:").grid(row=0, column=2, sticky="w")
-        self.gramos_var = tk.StringVar()
-        ttk.Entry(add_frame, textvariable=self.gramos_var, width=10).grid(row=0, column=3, padx=(6, 8))
-        ttk.Button(add_frame, text="Agregar/Actualizar", command=self.add_item).grid(row=0, column=4)
+        ttk.Label(add_frame, text="Gramos 1-2 años:").grid(row=0, column=2, sticky="w")
+        self.gramos_1_2_var = tk.StringVar()
+        ttk.Entry(add_frame, textvariable=self.gramos_1_2_var, width=10).grid(row=0, column=3, padx=(6, 8))
+
+        ttk.Label(add_frame, text="Gramos 3-5 años:").grid(row=0, column=4, sticky="w")
+        self.gramos_3_5_var = tk.StringVar()
+        ttk.Entry(add_frame, textvariable=self.gramos_3_5_var, width=10).grid(row=0, column=5, padx=(6, 8))
+
+        ttk.Button(add_frame, text="Agregar/Actualizar", command=self.add_item).grid(row=0, column=6)
         add_frame.grid_columnconfigure(1, weight=1)
 
-        self.tree = ttk.Treeview(root, columns=("alimento", "gramos"), show="headings", height=12)
+        self.tree = ttk.Treeview(root, columns=("alimento", "g12", "g35"), show="headings", height=12)
         self.tree.heading("alimento", text="Alimento")
-        self.tree.heading("gramos", text="Gramos")
-        self.tree.column("alimento", width=400)
-        self.tree.column("gramos", width=120, anchor="e")
+        self.tree.heading("g12", text="Gramos 1-2")
+        self.tree.heading("g35", text="Gramos 3-5")
+        self.tree.column("alimento", width=390)
+        self.tree.column("g12", width=120, anchor="e")
+        self.tree.column("g35", width=120, anchor="e")
         self.tree.pack(fill="both", expand=True)
 
         actions = ttk.Frame(root)
         actions.pack(fill="x", pady=(8, 0))
         ttk.Button(actions, text="Editar gramos", command=self.edit_gramos).pack(side="left")
-        ttk.Button(actions, text="Quitar ingrediente", command=self.remove_item).pack(side="left", padx=(8, 0))
+        ttk.Button(actions, text="Quitar alimento", command=self.remove_item).pack(side="left", padx=(8, 0))
 
         self.refresh_items()
 
@@ -85,7 +92,12 @@ class MinutaEditorWindow(tk.Toplevel):
         for item in self.tree.get_children():
             self.tree.delete(item)
         for row in self._items:
-            self.tree.insert("", "end", iid=str(row["id"]), values=(row["alimento_nombre"], row["gramos"]))
+            self.tree.insert(
+                "",
+                "end",
+                iid=str(row["id"]),
+                values=(row["alimento_nombre"], row["gramos_1_2"], row["gramos_3_5"]),
+            )
 
     def add_item(self) -> None:
         selected_name = models.normalize_name(self.alimento_var.get())
@@ -94,19 +106,25 @@ class MinutaEditorWindow(tk.Toplevel):
             messagebox.showerror("Validación", "Selecciona un alimento válido del catálogo.", parent=self)
             return
         try:
-            gramos = self._parse_gramos(self.gramos_var.get())
-            models.add_or_update_item(self.minuta_id, alimento["id"], gramos)
-            self.gramos_var.set("")
+            gramos_1_2 = self._parse_gramos(self.gramos_1_2_var.get())
+            gramos_3_5 = self._parse_gramos(self.gramos_3_5_var.get())
+            models.add_or_update_item(self.minuta_id, alimento["id"], gramos_1_2, gramos_3_5)
+            self.gramos_1_2_var.set("")
+            self.gramos_3_5_var.set("")
             self.refresh_items()
         except ValueError:
-            messagebox.showerror("Validación", "Los gramos deben ser un número mayor a 0.", parent=self)
+            messagebox.showerror(
+                "Validación",
+                "Los gramos de ambos grupos deben ser números mayores a 0.",
+                parent=self,
+            )
         except Exception:
-            messagebox.showerror("Error", "No fue posible agregar el ingrediente.", parent=self)
+            messagebox.showerror("Error", "No fue posible agregar el alimento.", parent=self)
 
     def _selected_item(self):
         selected = self.tree.selection()
         if not selected:
-            messagebox.showwarning("Atención", "Selecciona un ingrediente.", parent=self)
+            messagebox.showwarning("Atención", "Selecciona un alimento.", parent=self)
             return None
         item_id = int(selected[0])
         return next((x for x in self._items if x["id"] == item_id), None)
@@ -115,20 +133,35 @@ class MinutaEditorWindow(tk.Toplevel):
         item = self._selected_item()
         if not item:
             return
-        nuevo = simpledialog.askstring(
-            "Editar gramos",
-            "Nueva cantidad en gramos:",
-            initialvalue=str(item["gramos"]),
+        nuevo_1_2 = simpledialog.askstring(
+            "Editar gramos 1-2 años",
+            "Nueva cantidad en gramos (1-2 años):",
+            initialvalue=str(item["gramos_1_2"]),
             parent=self,
         )
-        if nuevo is None:
+        if nuevo_1_2 is None:
             return
+
+        nuevo_3_5 = simpledialog.askstring(
+            "Editar gramos 3-5 años",
+            "Nueva cantidad en gramos (3-5 años):",
+            initialvalue=str(item["gramos_3_5"]),
+            parent=self,
+        )
+        if nuevo_3_5 is None:
+            return
+
         try:
-            gramos = self._parse_gramos(nuevo)
-            models.update_item_gramos(item["id"], gramos)
+            gramos_1_2 = self._parse_gramos(nuevo_1_2)
+            gramos_3_5 = self._parse_gramos(nuevo_3_5)
+            models.update_item_gramos(item["id"], gramos_1_2, gramos_3_5)
             self.refresh_items()
         except ValueError:
-            messagebox.showerror("Validación", "Los gramos deben ser un número mayor a 0.", parent=self)
+            messagebox.showerror(
+                "Validación",
+                "Los gramos de ambos grupos deben ser números mayores a 0.",
+                parent=self,
+            )
         except Exception:
             messagebox.showerror("Error", "No fue posible actualizar gramos.", parent=self)
 
@@ -146,4 +179,83 @@ class MinutaEditorWindow(tk.Toplevel):
             models.remove_item(item["id"])
             self.refresh_items()
         except Exception:
-            messagebox.showerror("Error", "No fue posible quitar el ingrediente.", parent=self)
+            messagebox.showerror("Error", "No fue posible quitar el alimento.", parent=self)
+
+
+class MinutasWindow(tk.Toplevel):
+    def __init__(self, master: tk.Misc, on_change=None):
+        super().__init__(master)
+        self.title("Gestión de minutas")
+        self.geometry("700x470")
+        self.on_change = on_change
+
+        root = ttk.Frame(self, padding=12)
+        root.pack(fill="both", expand=True)
+
+        top = ttk.Frame(root)
+        top.pack(fill="x", pady=(0, 8))
+        ttk.Button(top, text="Nueva minuta", command=self.nueva_minuta).pack(side="left")
+        ttk.Button(top, text="Abrir minuta", command=self.abrir_minuta).pack(side="left", padx=(8, 0))
+        ttk.Button(top, text="Eliminar minuta", command=self.eliminar_minuta).pack(side="left", padx=(8, 0))
+
+        self.counter_var = tk.StringVar()
+        ttk.Label(top, textvariable=self.counter_var).pack(side="right")
+
+        self.tree = ttk.Treeview(root, columns=("nombre", "fecha"), show="headings")
+        self.tree.heading("nombre", text="Minuta")
+        self.tree.heading("fecha", text="Fecha creación")
+        self.tree.column("nombre", width=420)
+        self.tree.column("fecha", width=180)
+        self.tree.pack(fill="both", expand=True)
+        self.tree.bind("<Double-1>", lambda _e: self.abrir_minuta())
+
+        self._minutas = []
+        self.refresh()
+
+    def refresh(self) -> None:
+        self._minutas = models.list_minutas()
+        for row in self.tree.get_children():
+            self.tree.delete(row)
+        for row in self._minutas:
+            self.tree.insert("", "end", iid=str(row["id"]), values=(row["nombre"], row["fecha_creacion"]))
+        self.counter_var.set(f"Minutas: {len(self._minutas)}/{models.MAX_MINUTAS}")
+        if self.on_change:
+            self.on_change()
+
+    def nueva_minuta(self) -> None:
+        nombre = simpledialog.askstring("Nueva minuta", "Nombre de la minuta:", parent=self)
+        if nombre is None:
+            return
+        try:
+            minuta_id = models.create_minuta(nombre)
+            self.refresh()
+            MinutaEditorWindow(self, minuta_id)
+        except ValueError as exc:
+            messagebox.showerror("Validación", str(exc), parent=self)
+        except Exception:
+            messagebox.showerror("Error", "No fue posible crear la minuta.", parent=self)
+
+    def _selected_minuta_id(self) -> int | None:
+        selected = self.tree.selection()
+        if not selected:
+            messagebox.showwarning("Atención", "Selecciona una minuta.", parent=self)
+            return None
+        return int(selected[0])
+
+    def abrir_minuta(self) -> None:
+        minuta_id = self._selected_minuta_id()
+        if minuta_id is None:
+            return
+        MinutaEditorWindow(self, minuta_id)
+
+    def eliminar_minuta(self) -> None:
+        minuta_id = self._selected_minuta_id()
+        if minuta_id is None:
+            return
+        if not messagebox.askyesno("Confirmar", "¿Eliminar la minuta seleccionada?", parent=self):
+            return
+        try:
+            models.delete_minuta(minuta_id)
+            self.refresh()
+        except Exception:
+            messagebox.showerror("Error", "No fue posible eliminar la minuta.", parent=self)

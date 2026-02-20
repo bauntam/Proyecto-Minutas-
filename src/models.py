@@ -5,6 +5,8 @@ from typing import Any
 
 from db import get_connection
 
+MAX_MINUTAS = 25
+
 
 def normalize_name(nombre: str) -> str:
     return " ".join((nombre or "").strip().split())
@@ -77,36 +79,38 @@ def delete_jardin(jardin_id: int) -> None:
         conn.commit()
 
 
-def list_minutas(jardin_id: int) -> list[sqlite3.Row]:
+def list_minutas() -> list[sqlite3.Row]:
     with get_connection() as conn:
         return conn.execute(
             """
             SELECT id, nombre, fecha_creacion
             FROM minutas
-            WHERE jardin_id = ?
             ORDER BY fecha_creacion DESC, id DESC
-            """,
-            (jardin_id,),
+            """
         ).fetchall()
 
 
-def create_minuta(jardin_id: int, nombre: str) -> int:
+def create_minuta(nombre: str) -> int:
     nombre = normalize_name(nombre)
     if not nombre:
         raise ValueError("El nombre de la minuta es obligatorio.")
+    if count_minutas() >= MAX_MINUTAS:
+        raise ValueError(f"Solo se permiten {MAX_MINUTAS} minutas en total.")
     with get_connection() as conn:
-        cursor = conn.execute(
-            "INSERT INTO minutas(jardin_id, nombre) VALUES (?, ?)",
-            (jardin_id, nombre),
-        )
+        cursor = conn.execute("INSERT INTO minutas(nombre) VALUES (?)", (nombre,))
         conn.commit()
         return int(cursor.lastrowid)
+
+
+def count_minutas() -> int:
+    with get_connection() as conn:
+        return int(conn.execute("SELECT COUNT(*) FROM minutas").fetchone()[0])
 
 
 def get_minuta(minuta_id: int) -> sqlite3.Row | None:
     with get_connection() as conn:
         return conn.execute(
-            "SELECT id, jardin_id, nombre, fecha_creacion FROM minutas WHERE id = ?",
+            "SELECT id, nombre, fecha_creacion FROM minutas WHERE id = ?",
             (minuta_id,),
         ).fetchone()
 
@@ -130,7 +134,12 @@ def list_minuta_items(minuta_id: int) -> list[sqlite3.Row]:
     with get_connection() as conn:
         return conn.execute(
             """
-            SELECT mi.id, mi.gramos, a.id AS alimento_id, a.nombre AS alimento_nombre
+            SELECT
+                mi.id,
+                mi.gramos_1_2,
+                mi.gramos_3_5,
+                a.id AS alimento_id,
+                a.nombre AS alimento_nombre
             FROM minuta_items mi
             INNER JOIN alimentos a ON a.id = mi.alimento_id
             WHERE mi.minuta_id = ?
@@ -140,9 +149,13 @@ def list_minuta_items(minuta_id: int) -> list[sqlite3.Row]:
         ).fetchall()
 
 
-def add_or_update_item(minuta_id: int, alimento_id: int, gramos: float) -> None:
-    if gramos <= 0:
-        raise ValueError("Los gramos deben ser mayores a 0.")
+def _validate_gramos(gramos_1_2: float, gramos_3_5: float) -> None:
+    if gramos_1_2 <= 0 or gramos_3_5 <= 0:
+        raise ValueError("Los gramos deben ser mayores a 0 para ambos grupos.")
+
+
+def add_or_update_item(minuta_id: int, alimento_id: int, gramos_1_2: float, gramos_3_5: float) -> None:
+    _validate_gramos(gramos_1_2, gramos_3_5)
     with get_connection() as conn:
         existing = conn.execute(
             "SELECT id FROM minuta_items WHERE minuta_id = ? AND alimento_id = ?",
@@ -150,26 +163,79 @@ def add_or_update_item(minuta_id: int, alimento_id: int, gramos: float) -> None:
         ).fetchone()
         if existing:
             conn.execute(
-                "UPDATE minuta_items SET gramos = ? WHERE id = ?",
-                (gramos, existing["id"]),
+                "UPDATE minuta_items SET gramos_1_2 = ?, gramos_3_5 = ? WHERE id = ?",
+                (gramos_1_2, gramos_3_5, existing["id"]),
             )
         else:
             conn.execute(
-                "INSERT INTO minuta_items(minuta_id, alimento_id, gramos) VALUES (?, ?, ?)",
-                (minuta_id, alimento_id, gramos),
+                """
+                INSERT INTO minuta_items(minuta_id, alimento_id, gramos_1_2, gramos_3_5)
+                VALUES (?, ?, ?, ?)
+                """,
+                (minuta_id, alimento_id, gramos_1_2, gramos_3_5),
             )
         conn.commit()
 
 
-def update_item_gramos(item_id: int, gramos: float) -> None:
-    if gramos <= 0:
-        raise ValueError("Los gramos deben ser mayores a 0.")
+def update_item_gramos(item_id: int, gramos_1_2: float, gramos_3_5: float) -> None:
+    _validate_gramos(gramos_1_2, gramos_3_5)
     with get_connection() as conn:
-        conn.execute("UPDATE minuta_items SET gramos = ? WHERE id = ?", (gramos, item_id))
+        conn.execute(
+            "UPDATE minuta_items SET gramos_1_2 = ?, gramos_3_5 = ? WHERE id = ?",
+            (gramos_1_2, gramos_3_5, item_id),
+        )
         conn.commit()
 
 
 def remove_item(item_id: int) -> None:
     with get_connection() as conn:
         conn.execute("DELETE FROM minuta_items WHERE id = ?", (item_id,))
+        conn.commit()
+
+
+def list_jardin_minutas_semana(jardin_id: int) -> list[sqlite3.Row]:
+    with get_connection() as conn:
+        return conn.execute(
+            """
+            SELECT jms.id, jms.orden, m.id AS minuta_id, m.nombre AS minuta_nombre, m.fecha_creacion
+            FROM jardin_minutas_semana jms
+            INNER JOIN minutas m ON m.id = jms.minuta_id
+            WHERE jms.jardin_id = ?
+            ORDER BY jms.orden ASC
+            """,
+            (jardin_id,),
+        ).fetchall()
+
+
+def add_minuta_a_semana(jardin_id: int, minuta_id: int) -> None:
+    with get_connection() as conn:
+        existing = conn.execute(
+            "SELECT id FROM jardin_minutas_semana WHERE jardin_id = ? AND minuta_id = ?",
+            (jardin_id, minuta_id),
+        ).fetchone()
+        if existing:
+            return
+        max_orden = conn.execute(
+            "SELECT COALESCE(MAX(orden), 0) FROM jardin_minutas_semana WHERE jardin_id = ?",
+            (jardin_id,),
+        ).fetchone()[0]
+        conn.execute(
+            "INSERT INTO jardin_minutas_semana(jardin_id, minuta_id, orden) VALUES (?, ?, ?)",
+            (jardin_id, minuta_id, int(max_orden) + 1),
+        )
+        conn.commit()
+
+
+def remove_minuta_de_semana(jardin_id: int, minuta_id: int) -> None:
+    with get_connection() as conn:
+        conn.execute(
+            "DELETE FROM jardin_minutas_semana WHERE jardin_id = ? AND minuta_id = ?",
+            (jardin_id, minuta_id),
+        )
+        remaining = conn.execute(
+            "SELECT id FROM jardin_minutas_semana WHERE jardin_id = ? ORDER BY orden",
+            (jardin_id,),
+        ).fetchall()
+        for idx, row in enumerate(remaining, start=1):
+            conn.execute("UPDATE jardin_minutas_semana SET orden = ? WHERE id = ?", (idx, row["id"]))
         conn.commit()
