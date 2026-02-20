@@ -22,7 +22,7 @@ class MainWindow(ttk.Frame):
         top.pack(fill="x")
 
         ttk.Button(top, text="Gestionar Jardines", command=self.open_jardines).pack(side="left")
-        ttk.Button(top, text="Gestionar Catálogo", command=self.open_catalogo).pack(side="left", padx=(8, 0))
+        ttk.Button(top, text="Gestionar Alimentos", command=self.open_catalogo).pack(side="left", padx=(8, 0))
         ttk.Button(top, text="Gestionar Minutas", command=self.open_minutas).pack(side="left", padx=(8, 0))
 
         selection = ttk.LabelFrame(self, text="Jardín seleccionado", padding=8)
