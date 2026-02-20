@@ -1,14 +1,20 @@
 # Proyecto Minutas por Jardín
 
-Aplicación de escritorio (MVP) para gestionar minutas de alimentación por jardín infantil, con arquitectura preparada para crecer hacia módulos de exportación, pedidos automáticos, cálculo nutricional y eventual migración a una versión web.
+Aplicación de escritorio (MVP) para gestionar minutas de alimentación por jardín infantil. El proyecto mantiene una arquitectura por capas para facilitar su crecimiento a módulos como exportación, pedidos automáticos, cálculo nutricional y una eventual versión web.
 
-## Objetivos del MVP
+## Funcionalidades del MVP
 
-- Gestionar **múltiples jardines**.
-- Gestionar **múltiples minutas por jardín**.
-- Gestionar **múltiples ingredientes por minuta**.
-- Registrar cantidades en **gramos** (`REAL` en SQLite).
-- Mantener un **catálogo editable de alimentos**.
+- **Catálogo de alimentos**
+  - Seed inicial automático al primer inicio.
+  - Alta de alimentos desde interfaz.
+- **Jardines**
+  - Alta y listado de jardines.
+- **Minutas**
+  - Creación de minutas por jardín.
+  - Agregado de ingredientes por minuta con cantidades en gramos.
+- **Persistencia local**
+  - SQLite en `data/minutas.db`.
+  - Conserva datos entre ejecuciones.
 
 ## Arquitectura (separación de capas)
 
@@ -27,6 +33,7 @@ src/
     minute_service.py
   ui/                    # Interfaz gráfica (Tkinter)
     app.py
+app.py                   # Wrapper de compatibilidad para ejecutar desde raíz
 ```
 
 ### 1) Capa de datos
@@ -36,7 +43,7 @@ src/
 
 ### 2) Capa de negocio
 - `services/` contiene reglas y validaciones (ej. nombre obligatorio, gramos > 0).
-- La UI no consulta SQL directo, consume servicios.
+- La UI no consulta SQL directo: consume servicios.
 
 ### 3) Capa de interfaz
 - `ui/app.py` implementa interfaz mínima en Tkinter.
@@ -56,43 +63,33 @@ Relaciones:
 - Una minuta tiene muchos ingredientes (`minuta_items.minuta_id`).
 - Cada ingrediente referencia un alimento del catálogo (`minuta_items.alimento_id`).
 
-## Roadmap técnico (preparado para crecimiento)
-
-- **Exportación a Excel**: se puede agregar servicio `export_service.py` sin acoplar UI/DB.
-- **Generación automática de pedidos**: nuevo módulo en `services/` sobre agregación por rango de fechas/jardín.
-- **Cálculo nutricional**: extensión de `alimentos` con macros/micronutrientes.
-- **Versión web**: reutilizar `services/` y `models/` con API (FastAPI/Django/Flask).
-
 ## Requisitos
 
-- Python 3.11+ (funciona también con 3.10 si soporta `|` en type hints).
-- Tkinter disponible (incluido en la instalación estándar de Python para Windows).
+- Windows 11 (o Linux/macOS con Tkinter disponible).
+- Python 3.10+.
 
 ## Ejecución en Windows 11
 
-1. Instalar Python desde https://www.python.org/downloads/windows/  
-   Durante la instalación, marcar **"Add Python to PATH"**.
-
-2. Abrir **PowerShell** y moverse al proyecto:
+1. Abrir PowerShell y moverse al proyecto:
 
 ```powershell
 cd C:\ruta\a\Proyecto-Minutas-
 ```
 
-3. (Opcional recomendado) Crear entorno virtual:
+2. (Opcional recomendado) Crear entorno virtual:
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 ```
 
-4. Ejecutar la aplicación:
+3. Ejecutar la aplicación:
 
 ```powershell
 python app.py
 ```
 
-También puedes ejecutarla directamente con:
+También puedes ejecutarla con:
 
 ```powershell
 python src\main.py
@@ -101,11 +98,11 @@ python src\main.py
 ## Datos y seed inicial
 
 - La base de datos se crea automáticamente en `data/minutas.db` al primer inicio.
-- Se aplica automáticamente seed del catálogo inicial (arroz, fideos, lentejas, etc.) sin duplicar registros.
+- El catálogo inicial se inserta automáticamente si la tabla está vacía y no duplica registros.
 
-## Próximos pasos sugeridos
+## Roadmap técnico (siguientes pasos sugeridos)
 
 1. Agregar pruebas unitarias para `services/`.
-2. Incorporar repositorios (`repositories/`) si se desea mayor desacople SQL.
+2. Incorporar repositorios (`repositories/`) para mayor desacople SQL.
 3. Definir casos de uso formales (application layer).
-4. Añadir migraciones versionadas (Alembic-like o script propio).
+4. Añadir migraciones versionadas.
