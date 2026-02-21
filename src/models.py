@@ -251,10 +251,13 @@ def remove_minuta_de_semana(jardin_id: int, minuta_id: int) -> None:
 def calculate_weekly_order(minuta_ids: list[int], ninos_grupo_1: int, ninos_grupo_2: int) -> list[dict[str, Any]]:
     if ninos_grupo_1 < 0 or ninos_grupo_2 < 0:
         raise ValueError("La cantidad de niños por grupo debe ser mayor o igual a 0.")
-    if not minuta_ids:
+
+    # Usamos IDs únicos para evitar conteos duplicados por error de entrada.
+    selected_minuta_ids = sorted({int(minuta_id) for minuta_id in minuta_ids})
+    if not selected_minuta_ids:
         return []
 
-    placeholders = ",".join(["?"] * len(minuta_ids))
+    placeholders = ",".join(["?"] * len(selected_minuta_ids))
     query = f"""
         SELECT
             a.id AS alimento_id,
@@ -269,7 +272,7 @@ def calculate_weekly_order(minuta_ids: list[int], ninos_grupo_1: int, ninos_grup
     """
 
     with get_connection() as conn:
-        rows = conn.execute(query, minuta_ids).fetchall()
+        rows = conn.execute(query, selected_minuta_ids).fetchall()
 
     resumen: list[dict[str, Any]] = []
     for row in rows:
