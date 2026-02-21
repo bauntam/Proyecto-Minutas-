@@ -252,21 +252,23 @@ def calculate_weekly_order(minuta_ids: list[int], ninos_grupo_1: int, ninos_grup
     if ninos_grupo_1 < 0 or ninos_grupo_2 < 0:
         raise ValueError("La cantidad de niños por grupo debe ser mayor o igual a 0.")
 
-    # Usamos IDs únicos para evitar conteos duplicados por error de entrada.
-    selected_minuta_ids = sorted({int(minuta_id) for minuta_id in minuta_ids})
+    selected_minuta_ids = [int(minuta_id) for minuta_id in minuta_ids]
     if not selected_minuta_ids:
         return []
 
-    placeholders = ",".join(["?"] * len(selected_minuta_ids))
+    selected_minutas_values = ", ".join(["(?)"] * len(selected_minuta_ids))
     query = f"""
+        WITH selected_minutas(minuta_id) AS (
+            VALUES {selected_minutas_values}
+        )
         SELECT
             a.id AS alimento_id,
             a.nombre AS alimento_nombre,
             COALESCE(SUM(mi.gramos_1_2), 0) AS suma_gramos_g1,
             COALESCE(SUM(mi.gramos_3_5), 0) AS suma_gramos_g2
-        FROM minuta_items mi
+        FROM selected_minutas sm
+        INNER JOIN minuta_items mi ON mi.minuta_id = sm.minuta_id
         INNER JOIN alimentos a ON a.id = mi.alimento_id
-        WHERE mi.minuta_id IN ({placeholders})
         GROUP BY a.id, a.nombre
         ORDER BY lower(a.nombre) ASC
     """
