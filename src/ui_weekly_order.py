@@ -244,7 +244,7 @@ class WeeklyOrderWindow(tk.Toplevel):
     ) -> None:
         window = tk.Toplevel(self)
         window.title("Pedido semanal consolidado")
-        window.geometry("1040x520")
+        window.geometry("840x520")
 
         root = ttk.Frame(window, padding=12)
         root.pack(fill="both", expand=True)
@@ -252,16 +252,12 @@ class WeeklyOrderWindow(tk.Toplevel):
         ttk.Label(root, text=f"Minutas en la semana: {selected_count}").pack(anchor="w")
         ttk.Label(root, text=f"Niños G1: {ninos_g1} | Niños G2: {ninos_g2}").pack(anchor="w", pady=(2, 10))
 
-        columns = ("alimento", "suma_g1", "ninos_g1", "total_g1", "suma_g2", "ninos_g2", "total_g2", "total")
+        columns = ("alimento", "suma_g1", "suma_g2", "total")
         tree = ttk.Treeview(root, columns=columns, show="headings")
         tree.heading("alimento", text="Alimento")
         tree.heading("suma_g1", text="Suma gramos G1")
-        tree.heading("ninos_g1", text="#Niños G1")
-        tree.heading("total_g1", text="Total G1")
         tree.heading("suma_g2", text="Suma gramos G2")
-        tree.heading("ninos_g2", text="#Niños G2")
-        tree.heading("total_g2", text="Total G2")
-        tree.heading("total", text="Total general")
+        tree.heading("total", text="Total general en gramos")
 
         tree.column("alimento", width=220)
         for col in columns[1:]:
@@ -280,11 +276,7 @@ class WeeklyOrderWindow(tk.Toplevel):
                 values=(
                     row["alimento_nombre"],
                     row["suma_gramos_g1"],
-                    row["ninos_grupo_1"],
-                    row["total_g1"],
                     row["suma_gramos_g2"],
-                    row["ninos_grupo_2"],
-                    row["total_g2"],
                     row["total_general"],
                 ),
             )

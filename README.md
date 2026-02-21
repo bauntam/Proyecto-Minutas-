@@ -139,9 +139,9 @@ Reglas:
 6. Haz clic en **Generar pedido / Sumar minutas**.
 7. Se abrirá una ventana con el resumen del pedido y una tabla con columnas:
    - `Alimento`
-   - `Suma gramos G1`, `Total G1`
-   - `Suma gramos G2`, `Total G2`
-   - `Total general`
+   - `Suma gramos G1`
+   - `Suma gramos G2`
+   - `Total general en gramos`
    Además, arriba se muestra:
    - `Minutas seleccionadas: X`
    - `Niños G1: N1 | Niños G2: N2`
