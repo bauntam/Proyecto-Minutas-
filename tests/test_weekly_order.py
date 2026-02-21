@@ -10,6 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 import db
 import models
+from ui_weekly_order import format_pedido_final
 
 
 class WeeklyOrderUnionTest(unittest.TestCase):
@@ -70,6 +71,18 @@ class WeeklyOrderUnionTest(unittest.TestCase):
         by_name_2 = {row["alimento_nombre"]: row for row in resumen_2}
         self.assertEqual(by_name_2["Arroz"]["total_general"], 30 * 4)
         self.assertEqual(by_name_2["Frijol"]["total_general"], 20 * 4)
+
+
+class WeeklyOrderPedidoFinalFormatTest(unittest.TestCase):
+    def test_pounds_rounds_half_up_at_point_five(self) -> None:
+        self.assertEqual(format_pedido_final("Ahuyama", 5750), "12 lb")
+
+    def test_pounds_rounds_down_when_below_point_five(self) -> None:
+        self.assertEqual(format_pedido_final("Arroz", 5200), "10 lb")
+
+    def test_non_pounds_food_keeps_grams(self) -> None:
+        self.assertEqual(format_pedido_final("Yuca", 5750), "5750 g")
+
 
 
 if __name__ == "__main__":
