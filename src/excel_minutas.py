@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -12,18 +13,41 @@ HEADERS = [
     "gramos_grupo_2",
 ]
 
+LOGGER = logging.getLogger(__name__)
+
 
 @dataclass
 class ImportSummary:
     rows_processed: int = 0
+    rows_imported: int = 0
     minutas_created: int = 0
     minutas_updated: int = 0
     items_upserted: int = 0
+    foods_detected: int = 0
+    unknown_food_rows: int = 0
+    empty_food_rows: int = 0
     unknown_foods: list[str] | None = None
 
     def __post_init__(self) -> None:
         if self.unknown_foods is None:
             self.unknown_foods = []
+
+
+def _normalize_header(value: object) -> str:
+    return models.normalize_food_name(str(value or ""))
+
+
+def _validate_headers(ws: object) -> None:
+    header_values = [cell.value for cell in ws[1]]
+    normalized_headers = [_normalize_header(value) for value in header_values if value is not None]
+    expected = {models.normalize_food_name(header) for header in HEADERS}
+    missing = [header for header in HEADERS if models.normalize_food_name(header) not in normalized_headers]
+    if missing:
+        raise ValueError(
+            "La plantilla no contiene todas las columnas requeridas. "
+            f"Faltan: {', '.join(missing)}. "
+            f"Columnas detectadas: {', '.join(sorted(expected.intersection(normalized_headers)))}"
+        )
 
 
 def export_template(path: str | Path) -> Path:
@@ -56,7 +80,7 @@ def export_template(path: str | Path) -> Path:
         "1) Completa la columna 'minuta' con el nombre de la minuta (puedes repetirlo en varias filas)."
     ])
     ws2.append([
-        "2) No cambies el nombre de los alimentos; el sistema comparará el texto con el catálogo existente."
+        "2) El sistema compara alimentos con normalización (espacios/tildes/mayúsculas)."
     ])
     ws2.append([
         "3) Diligencia 'gramos_grupo_1' y 'gramos_grupo_2' con números mayores a 0."
@@ -77,10 +101,11 @@ def import_minutas(path: str | Path) -> ImportSummary:
 
     wb = load_workbook(filename=Path(path), data_only=True)
     ws = wb["Minutas"] if "Minutas" in wb.sheetnames else wb.active
+    _validate_headers(ws)
 
     summary = ImportSummary()
 
-    alimentos = {models.normalize_name(a["nombre"]).lower(): a["id"] for a in models.list_alimentos()}
+    alimentos = {models.normalize_food_name(a["nombre"]): a["id"] for a in models.list_alimentos()}
     minutas = {models.normalize_name(m["nombre"]).lower(): m["id"] for m in models.list_minutas()}
 
     for idx, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
@@ -89,10 +114,17 @@ def import_minutas(path: str | Path) -> ImportSummary:
         if not any([minuta_raw, alimento_raw, gramos1_raw, gramos2_raw]):
             continue
 
+        summary.rows_processed += 1
+
         minuta_name = models.normalize_name(str(minuta_raw or ""))
         alimento_name = models.normalize_name(str(alimento_raw or ""))
-        if not minuta_name or not alimento_name:
-            raise ValueError(f"Fila {idx}: 'minuta' y 'alimento' son obligatorios.")
+        if not minuta_name:
+            raise ValueError(f"Fila {idx}: 'minuta' es obligatoria.")
+
+        if not alimento_name:
+            summary.empty_food_rows += 1
+            LOGGER.warning("Fila %s ignorada por alimento vacío.", idx)
+            continue
 
         if gramos1_raw in (None, "") or gramos2_raw in (None, ""):
             continue
@@ -106,12 +138,16 @@ def import_minutas(path: str | Path) -> ImportSummary:
         if gramos_1 <= 0 or gramos_2 <= 0:
             continue
 
-        alimento_key = alimento_name.lower()
+        alimento_key = models.normalize_food_name(alimento_name)
         alimento_id = alimentos.get(alimento_key)
         if alimento_id is None:
+            summary.unknown_food_rows += 1
             if alimento_name not in summary.unknown_foods:
                 summary.unknown_foods.append(alimento_name)
+            LOGGER.warning("Alimento no encontrado en fila %s: %s", idx, alimento_name)
             continue
+
+        summary.foods_detected += 1
 
         minuta_key = minuta_name.lower()
         if minuta_key not in minutas:
@@ -124,6 +160,6 @@ def import_minutas(path: str | Path) -> ImportSummary:
 
         models.add_or_update_item(minuta_id, alimento_id, gramos_1, gramos_2)
         summary.items_upserted += 1
-        summary.rows_processed += 1
+        summary.rows_imported += 1
 
     return summary
