@@ -1,9 +1,79 @@
 from __future__ import annotations
 
 import tkinter as tk
+from decimal import Decimal, ROUND_HALF_UP
 from tkinter import messagebox, ttk
 
 import models
+
+
+def normalize_food_name(name: str) -> str:
+    return " ".join(name.strip().split()).casefold()
+
+
+_POUNDS_FOODS_RAW = {
+    "Ahuyama",
+    "Apio",
+    "Arveja verde c/cáscara",
+    "Banano bocadillo",
+    "Banano común",
+    "Calabazín",
+    "Cebolla cabezona",
+    "Cebolla larga",
+    "Crema de leche x 125 gr",
+    "Espinaca",
+    "Fresa",
+    "Durazno NACIONAL MADURO",
+    "Guayaba JUGO",
+    "Habichuela",
+    "Lechuga",
+    "Mandarina PORCION",
+    "Mango PORCION",
+    "Manzana ANA O ROYAL",
+    "Mora JUGO",
+    "Naranja DULCE PORCION",
+    "Papa común",
+    "Papaya PORCION",
+    "Pepino cohombro",
+    "Pepino de guiso",
+    "Pera PORCION",
+    "Piña ORO MIEL PORCIÓN",
+    "Plátano maduro",
+    "Plátano verde",
+    "Queso doble crema",
+    "Remolacha",
+    "Repollo blanco",
+    "Tomate chonto o río",
+    "Zanahoria",
+    "Carne de res MAGRA MOLIDA",
+    "Carne de res MAGRA BLANDA",
+    "Carne de cerdo MAGRA",
+    "Pechuga de pollo",
+    "Arroz",
+    "Azúcar",
+    "Chocolate de mesa",
+    "Harina de trigo",
+    "Harina de maíz para arepas",
+    "Lenteja",
+    "Sal",
+    "Frijol rojo",
+    "Tomate de arbol",
+}
+
+POUNDS_FOODS = {normalize_food_name(food) for food in _POUNDS_FOODS_RAW}
+
+
+def _round_half_up(value: Decimal) -> int:
+    return int(value.quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+
+
+def format_pedido_final(nombre_alimento: str, total_gramos: float | int) -> str:
+    if normalize_food_name(nombre_alimento) in POUNDS_FOODS:
+        libras = Decimal(str(total_gramos)) / Decimal("500")
+        return f"{_round_half_up(libras)} lb"
+    total = Decimal(str(total_gramos))
+    total_str = str(int(total)) if total == total.to_integral_value() else str(total.normalize())
+    return f"{total_str} g"
 
 
 class WeeklyOrderWindow(tk.Toplevel):
@@ -252,16 +322,19 @@ class WeeklyOrderWindow(tk.Toplevel):
         ttk.Label(root, text=f"Minutas en la semana: {selected_count}").pack(anchor="w")
         ttk.Label(root, text=f"Niños G1: {ninos_g1} | Niños G2: {ninos_g2}").pack(anchor="w", pady=(2, 10))
 
-        columns = ("alimento", "suma_g1", "suma_g2", "total")
+        columns = ("alimento", "suma_g1", "suma_g2", "total", "pedido_final")
         tree = ttk.Treeview(root, columns=columns, show="headings")
         tree.heading("alimento", text="Alimento")
         tree.heading("suma_g1", text="Suma gramos G1")
         tree.heading("suma_g2", text="Suma gramos G2")
         tree.heading("total", text="Total general en gramos")
+        tree.heading("pedido_final", text="Pedido final")
 
         tree.column("alimento", width=220)
-        for col in columns[1:]:
-            tree.column(col, width=105, anchor="e")
+        tree.column("suma_g1", width=120, anchor="e")
+        tree.column("suma_g2", width=120, anchor="e")
+        tree.column("total", width=165, anchor="e")
+        tree.column("pedido_final", width=110, anchor="e")
 
         yscroll = ttk.Scrollbar(root, orient="vertical", command=tree.yview)
         tree.configure(yscrollcommand=yscroll.set)
@@ -278,5 +351,6 @@ class WeeklyOrderWindow(tk.Toplevel):
                     row["suma_gramos_g1"],
                     row["suma_gramos_g2"],
                     row["total_general"],
+                    format_pedido_final(row["alimento_nombre"], row["total_general"]),
                 ),
             )
