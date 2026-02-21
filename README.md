@@ -144,8 +144,11 @@ Reglas:
 
 Reglas de cálculo:
 
-- `suma_gramos_g1 = Σ(gramos_1_2 del alimento en minutas seleccionadas)`
-- `suma_gramos_g2 = Σ(gramos_3_5 del alimento en minutas seleccionadas)`
+- El pedido usa la **UNIÓN total de alimentos** de todas las minutas seleccionadas.
+  - Si un alimento aparece en al menos 1 minuta, debe aparecer en el consolidado final.
+  - Si no aparece en alguna minuta seleccionada, para esa minuta su aporte se toma como `0` (no se elimina del pedido).
+- `suma_gramos_g1 = Σ(gramos_1_2 del alimento en minutas seleccionadas; si no existe fila en una minuta, suma 0)`
+- `suma_gramos_g2 = Σ(gramos_3_5 del alimento en minutas seleccionadas; si no existe fila en una minuta, suma 0)`
 - `total_g1 = suma_gramos_g1 * #niños_grupo_1`
 - `total_g2 = suma_gramos_g2 * #niños_grupo_2`
 - `total_general = total_g1 + total_g2`
