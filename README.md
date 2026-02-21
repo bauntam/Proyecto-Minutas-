@@ -1,6 +1,6 @@
 # MVP Minutas por Jardín (Tkinter + SQLite)
 
-Aplicación de escritorio simple para crear y gestionar **jardines**, **minutas** e **ingredientes en gramos**.
+Aplicación de escritorio simple para crear y gestionar **jardines**, **minutas**, **ingredientes en gramos** y el **pedido semanal** por jardín.
 Está pensada para una primera entrega usable y estable.
 
 ## Funcionalidades incluidas
@@ -11,11 +11,16 @@ Está pensada para una primera entrega usable y estable.
   - Evita duplicados por nombre (sin importar mayúsculas/minúsculas ni espacios extra).
 - **Jardines**
   - Crear, listar, renombrar y eliminar.
-- **Minutas por jardín**
-  - Crear minuta dentro de un jardín.
-  - Agregar ingredientes desde catálogo con cantidad en gramos (> 0).
+- **Plan semanal por jardín**
+  - Asignar minutas a una semana por jardín.
+  - Agregar ingredientes desde catálogo con gramos por 2 grupos etarios.
   - Editar gramos y quitar ingredientes.
   - Listar y abrir minutas para edición.
+
+- **Pedido semanal (MVP)**
+  - Selección de jardín y múltiples minutas de la semana.
+  - Ingreso de # de niños por grupo etario.
+  - Consolidación por alimento sumando minutas repetidas y cálculo de totales.
 
 - **Minutas (importación por Excel)**
   - Descargar plantilla `.xlsx` con alimentos en orden alfabético.
@@ -48,8 +53,9 @@ Tablas:
 
 - `alimentos(id, nombre UNIQUE)`
 - `jardines(id, nombre UNIQUE)`
-- `minutas(id, jardin_id, nombre, fecha_creacion)`
-- `minuta_items(id, minuta_id, alimento_id, gramos)`
+- `minutas(id, nombre, fecha_creacion)`
+- `minuta_items(id, minuta_id, alimento_id, gramos_1_2, gramos_3_5)`
+- `jardin_minutas_semana(id, jardin_id, minuta_id, orden)`
 
 ## Ejecución en Windows 11
 
@@ -121,3 +127,27 @@ Reglas:
 - Si la minuta no existe, se crea automáticamente.
 - Si la minuta ya existe, se actualizan sus alimentos.
 - Los gramos de ambos grupos deben ser números mayores a 0.
+
+
+## Cómo generar pedido semanal
+
+1. En la pantalla principal, haz clic en **Pedido semanal**.
+2. Selecciona el **jardín**.
+3. En la lista de minutas, selecciona varias usando `Ctrl`/`Shift` (selección múltiple).
+4. Ingresa **#Niños Grupo 1** y **#Niños Grupo 2** (enteros `>= 0`).
+5. Haz clic en **Calcular**.
+6. Se mostrará una tabla resumen con columnas:
+   - `Alimento`
+   - `Suma gramos G1`, `#Niños G1`, `Total G1`
+   - `Suma gramos G2`, `#Niños G2`, `Total G2`
+   - `Total general`
+
+Reglas de cálculo:
+
+- `suma_gramos_g1 = Σ(gramos_1_2 del alimento en minutas seleccionadas)`
+- `suma_gramos_g2 = Σ(gramos_3_5 del alimento en minutas seleccionadas)`
+- `total_g1 = suma_gramos_g1 * #niños_grupo_1`
+- `total_g2 = suma_gramos_g2 * #niños_grupo_2`
+- `total_general = total_g1 + total_g2`
+
+La tabla se ordena alfabéticamente por alimento.

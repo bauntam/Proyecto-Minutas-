@@ -7,6 +7,7 @@ import models
 from ui_catalogo import CatalogoWindow
 from ui_jardines import JardinesWindow
 from ui_minutas import MinutasWindow
+from ui_weekly_order import WeeklyOrderWindow
 
 
 class MainWindow(ttk.Frame):
@@ -24,6 +25,7 @@ class MainWindow(ttk.Frame):
         ttk.Button(top, text="Gestionar Jardines", command=self.open_jardines).pack(side="left")
         ttk.Button(top, text="Gestionar Alimentos", command=self.open_catalogo).pack(side="left", padx=(8, 0))
         ttk.Button(top, text="Gestionar Minutas", command=self.open_minutas).pack(side="left", padx=(8, 0))
+        ttk.Button(top, text="Pedido semanal", command=self.open_weekly_order).pack(side="left", padx=(8, 0))
 
         selection = ttk.LabelFrame(self, text="Jardín seleccionado", padding=8)
         selection.pack(fill="x", pady=(12, 8))
@@ -63,6 +65,9 @@ class MainWindow(ttk.Frame):
 
     def open_minutas(self) -> None:
         MinutasWindow(self.master, on_change=self.refresh_semana)
+
+    def open_weekly_order(self) -> None:
+        WeeklyOrderWindow(self.master)
 
     def refresh_jardines(self) -> None:
         selected_name = self.jardin_var.get()
