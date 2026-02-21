@@ -47,30 +47,27 @@ class WeeklyOrderWindow(tk.Toplevel):
 
         self.minutas_listbox = tk.Listbox(left, selectmode=tk.EXTENDED, width=45, height=18)
         self.minutas_listbox.pack(fill="both", expand=True)
+        self.minutas_listbox.bind("<<ListboxSelect>>", lambda _e: self._update_selected_count())
 
-        ttk.Button(left, text="Calcular", command=self.calculate).pack(fill="x", pady=(8, 0))
+        self.selected_count_var = tk.StringVar(value="Minutas seleccionadas: 0")
+        ttk.Label(left, textvariable=self.selected_count_var).pack(anchor="w", pady=(8, 0))
 
-        right = ttk.LabelFrame(body, text="Resumen pedido semanal", padding=8)
+        ttk.Button(left, text="Generar pedido / Sumar minutas", command=self.calculate).pack(fill="x", pady=(8, 0))
+
+        right = ttk.LabelFrame(body, text="Resultado", padding=8)
         right.pack(side="left", fill="both", expand=True, padx=(10, 0))
-
-        columns = ("alimento", "suma_g1", "ninos_g1", "total_g1", "suma_g2", "ninos_g2", "total_g2", "total")
-        self.tree = ttk.Treeview(right, columns=columns, show="headings")
-        self.tree.heading("alimento", text="Alimento")
-        self.tree.heading("suma_g1", text="Suma gramos G1")
-        self.tree.heading("ninos_g1", text="#Niños G1")
-        self.tree.heading("total_g1", text="Total G1")
-        self.tree.heading("suma_g2", text="Suma gramos G2")
-        self.tree.heading("ninos_g2", text="#Niños G2")
-        self.tree.heading("total_g2", text="Total G2")
-        self.tree.heading("total", text="Total general")
-
-        self.tree.column("alimento", width=220)
-        for col in columns[1:]:
-            self.tree.column(col, width=95, anchor="e")
-
-        self.tree.pack(fill="both", expand=True)
+        ttk.Label(
+            right,
+            text="El resultado se abrirá en una ventana con el resumen consolidado por alimento.",
+            wraplength=380,
+            justify="left",
+        ).pack(anchor="nw")
 
         self.refresh_jardines()
+
+    def _update_selected_count(self) -> None:
+        selected_count = len(self.minutas_listbox.curselection())
+        self.selected_count_var.set(f"Minutas seleccionadas: {selected_count}")
 
     def _selected_jardin(self):
         name = self.jardin_var.get()
@@ -99,11 +96,13 @@ class WeeklyOrderWindow(tk.Toplevel):
 
         jardin = self._selected_jardin()
         if not jardin:
+            self._update_selected_count()
             return
 
         self._minutas_jardin = models.list_jardin_minutas_semana(jardin["id"])
         for row in self._minutas_jardin:
             self.minutas_listbox.insert(tk.END, row["minuta_nombre"])
+        self._update_selected_count()
 
     def _parse_non_negative_int(self, raw: str, label: str) -> int:
         try:
@@ -130,24 +129,58 @@ class WeeklyOrderWindow(tk.Toplevel):
         minuta_ids = [self._minutas_jardin[idx]["minuta_id"] for idx in selected_indices]
         resumen = models.calculate_weekly_order(minuta_ids, ninos_g1, ninos_g2)
 
-        for row_id in self.tree.get_children():
-            self.tree.delete(row_id)
+        if not resumen:
+            messagebox.showinfo("Resultado", "No se encontraron alimentos para las minutas seleccionadas.", parent=self)
+            return
+
+        self._show_result_window(resumen, len(set(minuta_ids)), ninos_g1, ninos_g2)
+
+    def _show_result_window(
+        self,
+        resumen: list[dict[str, float | int | str]],
+        selected_count: int,
+        ninos_g1: int,
+        ninos_g2: int,
+    ) -> None:
+        window = tk.Toplevel(self)
+        window.title("Pedido semanal consolidado")
+        window.geometry("1040x520")
+
+        root = ttk.Frame(window, padding=12)
+        root.pack(fill="both", expand=True)
+
+        ttk.Label(root, text=f"Minutas seleccionadas: {selected_count}").pack(anchor="w")
+        ttk.Label(root, text=f"Niños G1: {ninos_g1} | Niños G2: {ninos_g2}").pack(anchor="w", pady=(2, 10))
+
+        columns = ("alimento", "suma_g1", "total_g1", "suma_g2", "total_g2", "total")
+        tree = ttk.Treeview(root, columns=columns, show="headings")
+        tree.heading("alimento", text="Alimento")
+        tree.heading("suma_g1", text="Suma gramos G1")
+        tree.heading("total_g1", text="Total G1")
+        tree.heading("suma_g2", text="Suma gramos G2")
+        tree.heading("total_g2", text="Total G2")
+        tree.heading("total", text="Total general")
+
+        tree.column("alimento", width=220)
+        for col in columns[1:]:
+            tree.column(col, width=130, anchor="e")
+
+        yscroll = ttk.Scrollbar(root, orient="vertical", command=tree.yview)
+        tree.configure(yscrollcommand=yscroll.set)
+
+        tree.pack(side="left", fill="both", expand=True)
+        yscroll.pack(side="left", fill="y")
 
         for row in resumen:
-            self.tree.insert(
+            tree.insert(
                 "",
                 "end",
                 values=(
                     row["alimento_nombre"],
                     row["suma_gramos_g1"],
-                    row["ninos_grupo_1"],
                     row["total_g1"],
                     row["suma_gramos_g2"],
-                    row["ninos_grupo_2"],
                     row["total_g2"],
                     row["total_general"],
                 ),
             )
-
-        if not resumen:
-            messagebox.showinfo("Resultado", "No se encontraron alimentos para las minutas seleccionadas.", parent=self)
