@@ -246,3 +246,49 @@ def remove_minuta_de_semana(jardin_id: int, minuta_id: int) -> None:
         for idx, row in enumerate(remaining, start=1):
             conn.execute("UPDATE jardin_minutas_semana SET orden = ? WHERE id = ?", (idx, row["id"]))
         conn.commit()
+
+
+def calculate_weekly_order(minuta_ids: list[int], ninos_grupo_1: int, ninos_grupo_2: int) -> list[dict[str, Any]]:
+    if ninos_grupo_1 < 0 or ninos_grupo_2 < 0:
+        raise ValueError("La cantidad de niños por grupo debe ser mayor o igual a 0.")
+    if not minuta_ids:
+        return []
+
+    placeholders = ",".join(["?"] * len(minuta_ids))
+    query = f"""
+        SELECT
+            a.id AS alimento_id,
+            a.nombre AS alimento_nombre,
+            COALESCE(SUM(mi.gramos_1_2), 0) AS suma_gramos_g1,
+            COALESCE(SUM(mi.gramos_3_5), 0) AS suma_gramos_g2
+        FROM minuta_items mi
+        INNER JOIN alimentos a ON a.id = mi.alimento_id
+        WHERE mi.minuta_id IN ({placeholders})
+        GROUP BY a.id, a.nombre
+        ORDER BY lower(a.nombre) ASC
+    """
+
+    with get_connection() as conn:
+        rows = conn.execute(query, minuta_ids).fetchall()
+
+    resumen: list[dict[str, Any]] = []
+    for row in rows:
+        suma_g1 = float(row["suma_gramos_g1"] or 0)
+        suma_g2 = float(row["suma_gramos_g2"] or 0)
+        total_g1 = suma_g1 * ninos_grupo_1
+        total_g2 = suma_g2 * ninos_grupo_2
+        resumen.append(
+            {
+                "alimento_id": row["alimento_id"],
+                "alimento_nombre": row["alimento_nombre"],
+                "suma_gramos_g1": suma_g1,
+                "ninos_grupo_1": ninos_grupo_1,
+                "total_g1": total_g1,
+                "suma_gramos_g2": suma_g2,
+                "ninos_grupo_2": ninos_grupo_2,
+                "total_g2": total_g2,
+                "total_general": total_g1 + total_g2,
+            }
+        )
+
+    return resumen
