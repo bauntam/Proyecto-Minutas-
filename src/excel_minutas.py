@@ -94,6 +94,9 @@ def import_minutas(path: str | Path) -> ImportSummary:
         if not minuta_name or not alimento_name:
             raise ValueError(f"Fila {idx}: 'minuta' y 'alimento' son obligatorios.")
 
+        if gramos1_raw in (None, "") or gramos2_raw in (None, ""):
+            continue
+
         try:
             gramos_1 = float(str(gramos1_raw).replace(",", "."))
             gramos_2 = float(str(gramos2_raw).replace(",", "."))
@@ -101,7 +104,7 @@ def import_minutas(path: str | Path) -> ImportSummary:
             raise ValueError(f"Fila {idx}: gramos inválidos para '{alimento_name}'.") from exc
 
         if gramos_1 <= 0 or gramos_2 <= 0:
-            raise ValueError(f"Fila {idx}: los gramos deben ser mayores a 0.")
+            continue
 
         alimento_key = alimento_name.lower()
         alimento_id = alimentos.get(alimento_key)
