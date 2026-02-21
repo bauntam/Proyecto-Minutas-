@@ -351,13 +351,20 @@ class MinutasWindow(tk.Toplevel):
             summary = excel_minutas.import_minutas(file_path)
             self.refresh()
             message = (
-                f"Filas procesadas: {summary.rows_processed}\n"
+                f"Filas leídas no vacías: {summary.rows_processed}\n"
+                f"Filas importadas: {summary.rows_imported}\n"
                 f"Minutas creadas: {summary.minutas_created}\n"
                 f"Filas actualizadas en minutas existentes: {summary.minutas_updated}\n"
+                f"Alimentos detectados: {summary.foods_detected}\n"
                 f"Alimentos cargados/actualizados: {summary.items_upserted}"
             )
+            if summary.empty_food_rows:
+                message += f"\n\nFilas con alimento vacío ignoradas: {summary.empty_food_rows}"
             if summary.unknown_foods:
-                message += "\n\nAlimentos no encontrados en catálogo:\n- " + "\n- ".join(summary.unknown_foods)
+                message += (
+                    f"\n\nFilas con alimento no encontrado: {summary.unknown_food_rows}"
+                    "\nAlimentos no encontrados en catálogo:\n- " + "\n- ".join(summary.unknown_foods)
+                )
             messagebox.showinfo("Importación completada", message, parent=self)
         except RuntimeError as exc:
             messagebox.showerror("Dependencia faltante", str(exc), parent=self)

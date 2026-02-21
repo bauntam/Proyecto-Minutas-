@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
+import unicodedata
 from typing import Any
 
 from db import get_connection
@@ -10,6 +11,22 @@ MAX_MINUTAS = 25
 
 def normalize_name(nombre: str) -> str:
     return " ".join((nombre or "").strip().split())
+
+
+def normalize_food_name(nombre: str) -> str:
+    text = unicodedata.normalize("NFKC", nombre or "")
+    text = text.replace("\u00A0", " ")
+    text = text.replace("\u2018", "'").replace("\u2019", "'")
+    text = text.replace('"', " ").replace("'", " ")
+    text = "".join(
+        char
+        for char in unicodedata.normalize("NFD", text)
+        if unicodedata.category(char) != "Mn"
+    )
+    normalized_chars: list[str] = []
+    for char in text.lower():
+        normalized_chars.append(char if char.isalnum() else " ")
+    return " ".join("".join(normalized_chars).split())
 
 
 def _exists_by_name(table: str, nombre: str, current_id: int | None = None) -> bool:
