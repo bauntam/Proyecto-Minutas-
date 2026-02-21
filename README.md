@@ -135,12 +135,16 @@ Reglas:
 2. Selecciona el **jardín**.
 3. En la lista de minutas, selecciona varias usando `Ctrl`/`Shift` (selección múltiple).
 4. Ingresa **#Niños Grupo 1** y **#Niños Grupo 2** (enteros `>= 0`).
-5. Haz clic en **Calcular**.
-6. Se mostrará una tabla resumen con columnas:
+5. Verifica el indicador **Minutas seleccionadas: X** (se actualiza en tiempo real).
+6. Haz clic en **Generar pedido / Sumar minutas**.
+7. Se abrirá una ventana con el resumen del pedido y una tabla con columnas:
    - `Alimento`
-   - `Suma gramos G1`, `#Niños G1`, `Total G1`
-   - `Suma gramos G2`, `#Niños G2`, `Total G2`
+   - `Suma gramos G1`, `Total G1`
+   - `Suma gramos G2`, `Total G2`
    - `Total general`
+   Además, arriba se muestra:
+   - `Minutas seleccionadas: X`
+   - `Niños G1: N1 | Niños G2: N2`
 
 Reglas de cálculo:
 

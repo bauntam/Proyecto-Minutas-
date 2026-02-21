@@ -48,6 +48,29 @@ class WeeklyOrderUnionTest(unittest.TestCase):
         self.assertEqual(by_name["Arroz"]["suma_gramos_g1"], 75)
         self.assertEqual(by_name["Arroz"]["suma_gramos_g2"], 100)
 
+    def test_results_are_sorted_and_recalculate_totals_by_children(self) -> None:
+        frijol_id = models.create_alimento("Frijol")
+        arroz_id = models.create_alimento("Arroz")
+
+        m1_id = models.create_minuta("M1")
+        m2_id = models.create_minuta("M2")
+
+        models.add_or_update_item(m1_id, frijol_id, 20, 10)
+        models.add_or_update_item(m2_id, arroz_id, 30, 5)
+
+        resumen_1 = models.calculate_weekly_order([m1_id, m2_id], 2, 3)
+        nombres = [row["alimento_nombre"] for row in resumen_1]
+        self.assertEqual(nombres, ["Arroz", "Frijol"])
+
+        by_name_1 = {row["alimento_nombre"]: row for row in resumen_1}
+        self.assertEqual(by_name_1["Arroz"]["total_general"], (30 * 2) + (5 * 3))
+        self.assertEqual(by_name_1["Frijol"]["total_general"], (20 * 2) + (10 * 3))
+
+        resumen_2 = models.calculate_weekly_order([m1_id, m2_id], 4, 0)
+        by_name_2 = {row["alimento_nombre"]: row for row in resumen_2}
+        self.assertEqual(by_name_2["Arroz"]["total_general"], 30 * 4)
+        self.assertEqual(by_name_2["Frijol"]["total_general"], 20 * 4)
+
 
 if __name__ == "__main__":
     unittest.main()
