@@ -10,7 +10,7 @@ class WeeklyOrderWindow(tk.Toplevel):
     def __init__(self, master: tk.Misc):
         super().__init__(master)
         self.title("Pedido semanal")
-        self.geometry("980x620")
+        self.geometry("1080x640")
 
         self._jardines = []
         self._minutas_jardin = []
@@ -42,17 +42,32 @@ class WeeklyOrderWindow(tk.Toplevel):
         body = ttk.Frame(root)
         body.pack(fill="both", expand=True, pady=(10, 0))
 
-        left = ttk.LabelFrame(body, text="Minutas de la semana (selección múltiple)", padding=8)
-        left.pack(side="left", fill="both", expand=False)
+        left = ttk.LabelFrame(body, text="Minutas cargadas en la semana", padding=8)
+        left.pack(side="left", fill="both", expand=True)
 
-        self.minutas_listbox = tk.Listbox(left, selectmode=tk.EXTENDED, width=45, height=18)
-        self.minutas_listbox.pack(fill="both", expand=True)
-        self.minutas_listbox.bind("<<ListboxSelect>>", lambda _e: self._update_selected_count())
+        actions = ttk.Frame(left)
+        actions.pack(fill="x", pady=(0, 8))
+        ttk.Button(actions, text="Agregar minuta a la semana", command=self.add_minuta_semana).pack(side="left")
+        ttk.Button(actions, text="Quitar minuta de la semana", command=self.remove_minuta_semana).pack(side="left", padx=(8, 0))
 
-        self.selected_count_var = tk.StringVar(value="Minutas seleccionadas: 0")
-        ttk.Label(left, textvariable=self.selected_count_var).pack(anchor="w", pady=(8, 0))
+        columns = ("orden", "minuta", "fecha")
+        self.semana_tree = ttk.Treeview(left, columns=columns, show="headings", height=15)
+        self.semana_tree.heading("orden", text="#")
+        self.semana_tree.heading("minuta", text="Minuta")
+        self.semana_tree.heading("fecha", text="Fecha creación")
+        self.semana_tree.column("orden", width=50, anchor="center")
+        self.semana_tree.column("minuta", width=280)
+        self.semana_tree.column("fecha", width=180)
 
-        ttk.Button(left, text="Generar pedido / Sumar minutas", command=self.calculate).pack(fill="x", pady=(8, 0))
+        semana_scroll = ttk.Scrollbar(left, orient="vertical", command=self.semana_tree.yview)
+        self.semana_tree.configure(yscrollcommand=semana_scroll.set)
+        self.semana_tree.pack(side="left", fill="both", expand=True)
+        semana_scroll.pack(side="left", fill="y")
+
+        self.minutas_count_var = tk.StringVar(value="Minutas en la semana: 0")
+        ttk.Label(left, textvariable=self.minutas_count_var).pack(anchor="w", pady=(8, 0))
+
+        ttk.Button(left, text="Generar pedido semanal", command=self.calculate).pack(fill="x", pady=(8, 0))
 
         right = ttk.LabelFrame(body, text="Resultado", padding=8)
         right.pack(side="left", fill="both", expand=True, padx=(10, 0))
@@ -65,9 +80,8 @@ class WeeklyOrderWindow(tk.Toplevel):
 
         self.refresh_jardines()
 
-    def _update_selected_count(self) -> None:
-        selected_count = len(self.minutas_listbox.curselection())
-        self.selected_count_var.set(f"Minutas seleccionadas: {selected_count}")
+    def _update_minutas_count(self) -> None:
+        self.minutas_count_var.set(f"Minutas en la semana: {len(self._minutas_jardin)}")
 
     def _selected_jardin(self):
         name = self.jardin_var.get()
@@ -91,18 +105,105 @@ class WeeklyOrderWindow(tk.Toplevel):
         self.refresh_minutas()
 
     def refresh_minutas(self) -> None:
-        self.minutas_listbox.delete(0, tk.END)
+        for item in self.semana_tree.get_children():
+            self.semana_tree.delete(item)
         self._minutas_jardin = []
 
         jardin = self._selected_jardin()
         if not jardin:
-            self._update_selected_count()
+            self._update_minutas_count()
             return
 
         self._minutas_jardin = models.list_jardin_minutas_semana(jardin["id"])
         for row in self._minutas_jardin:
-            self.minutas_listbox.insert(tk.END, row["minuta_nombre"])
-        self._update_selected_count()
+            self.semana_tree.insert(
+                "",
+                "end",
+                iid=str(row["minuta_id"]),
+                values=(row["orden"], row["minuta_nombre"], row["fecha_creacion"]),
+            )
+        self._update_minutas_count()
+
+    def add_minuta_semana(self) -> None:
+        jardin = self._selected_jardin()
+        if not jardin:
+            messagebox.showwarning("Atención", "Selecciona un jardín.", parent=self)
+            return
+
+        minutas = models.list_minutas()
+        if not minutas:
+            messagebox.showwarning("Atención", "No hay minutas creadas. Crea una primero.", parent=self)
+            return
+
+        already = {row["minuta_id"] for row in self._minutas_jardin}
+        candidates = [m for m in minutas if m["id"] not in already]
+        if not candidates:
+            messagebox.showinfo("Información", "Este jardín ya tiene todas las minutas asignadas.", parent=self)
+            return
+
+        selected = self._pick_minuta(candidates)
+        if not selected:
+            return
+
+        try:
+            models.add_minuta_a_semana(jardin["id"], selected["id"])
+            self.refresh_minutas()
+        except Exception:
+            messagebox.showerror("Error", "No fue posible agregar la minuta a la semana.", parent=self)
+
+    def _pick_minuta(self, minutas: list) -> dict | None:
+        picker = tk.Toplevel(self)
+        picker.title("Seleccionar minuta")
+        picker.geometry("420x360")
+        picker.transient(self)
+        picker.grab_set()
+
+        frame = ttk.Frame(picker, padding=12)
+        frame.pack(fill="both", expand=True)
+        ttk.Label(frame, text="Selecciona la minuta para el pedido semanal:").pack(anchor="w")
+
+        listbox = tk.Listbox(frame)
+        listbox.pack(fill="both", expand=True, pady=(8, 8))
+        for minuta in minutas:
+            listbox.insert(tk.END, minuta["nombre"])
+
+        chosen = {"row": None}
+
+        def accept() -> None:
+            idx = listbox.curselection()
+            if not idx:
+                return
+            chosen["row"] = minutas[idx[0]]
+            picker.destroy()
+
+        buttons = ttk.Frame(frame)
+        buttons.pack(fill="x")
+        ttk.Button(buttons, text="Cancelar", command=picker.destroy).pack(side="right")
+        ttk.Button(buttons, text="Seleccionar", command=accept).pack(side="right", padx=(0, 8))
+
+        picker.wait_window()
+        return chosen["row"]
+
+    def remove_minuta_semana(self) -> None:
+        jardin = self._selected_jardin()
+        if not jardin:
+            messagebox.showwarning("Atención", "Selecciona un jardín.", parent=self)
+            return
+
+        selected = self.semana_tree.selection()
+        if not selected:
+            messagebox.showwarning("Atención", "Selecciona una minuta de la semana.", parent=self)
+            return
+
+        minuta_id = int(selected[0])
+        if not messagebox.askyesno("Confirmar", "¿Quitar esta minuta del pedido semanal?", parent=self):
+            return
+
+        try:
+            models.remove_minuta_de_semana(jardin["id"], minuta_id)
+            self.refresh_minutas()
+        except Exception:
+            messagebox.showerror("Error", "No fue posible quitar la minuta de la semana.", parent=self)
 
     def _parse_non_negative_int(self, raw: str, label: str) -> int:
         try:
@@ -114,9 +215,8 @@ class WeeklyOrderWindow(tk.Toplevel):
         return value
 
     def calculate(self) -> None:
-        selected_indices = self.minutas_listbox.curselection()
-        if not selected_indices:
-            messagebox.showwarning("Validación", "Selecciona al menos una minuta.", parent=self)
+        if not self._minutas_jardin:
+            messagebox.showwarning("Validación", "Agrega al menos una minuta.", parent=self)
             return
 
         try:
@@ -126,11 +226,11 @@ class WeeklyOrderWindow(tk.Toplevel):
             messagebox.showerror("Validación", str(exc), parent=self)
             return
 
-        minuta_ids = [self._minutas_jardin[idx]["minuta_id"] for idx in selected_indices]
+        minuta_ids = [row["minuta_id"] for row in self._minutas_jardin]
         resumen = models.calculate_weekly_order(minuta_ids, ninos_g1, ninos_g2)
 
         if not resumen:
-            messagebox.showinfo("Resultado", "No se encontraron alimentos para las minutas seleccionadas.", parent=self)
+            messagebox.showinfo("Resultado", "No se encontraron alimentos para las minutas de la semana.", parent=self)
             return
 
         self._show_result_window(resumen, len(set(minuta_ids)), ninos_g1, ninos_g2)
@@ -149,21 +249,23 @@ class WeeklyOrderWindow(tk.Toplevel):
         root = ttk.Frame(window, padding=12)
         root.pack(fill="both", expand=True)
 
-        ttk.Label(root, text=f"Minutas seleccionadas: {selected_count}").pack(anchor="w")
+        ttk.Label(root, text=f"Minutas en la semana: {selected_count}").pack(anchor="w")
         ttk.Label(root, text=f"Niños G1: {ninos_g1} | Niños G2: {ninos_g2}").pack(anchor="w", pady=(2, 10))
 
-        columns = ("alimento", "suma_g1", "total_g1", "suma_g2", "total_g2", "total")
+        columns = ("alimento", "suma_g1", "ninos_g1", "total_g1", "suma_g2", "ninos_g2", "total_g2", "total")
         tree = ttk.Treeview(root, columns=columns, show="headings")
         tree.heading("alimento", text="Alimento")
         tree.heading("suma_g1", text="Suma gramos G1")
+        tree.heading("ninos_g1", text="#Niños G1")
         tree.heading("total_g1", text="Total G1")
         tree.heading("suma_g2", text="Suma gramos G2")
+        tree.heading("ninos_g2", text="#Niños G2")
         tree.heading("total_g2", text="Total G2")
         tree.heading("total", text="Total general")
 
         tree.column("alimento", width=220)
         for col in columns[1:]:
-            tree.column(col, width=130, anchor="e")
+            tree.column(col, width=105, anchor="e")
 
         yscroll = ttk.Scrollbar(root, orient="vertical", command=tree.yview)
         tree.configure(yscrollcommand=yscroll.set)
@@ -178,8 +280,10 @@ class WeeklyOrderWindow(tk.Toplevel):
                 values=(
                     row["alimento_nombre"],
                     row["suma_gramos_g1"],
+                    row["ninos_grupo_1"],
                     row["total_g1"],
                     row["suma_gramos_g2"],
+                    row["ninos_grupo_2"],
                     row["total_g2"],
                     row["total_general"],
                 ),
