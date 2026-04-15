@@ -70,6 +70,15 @@ def init_db() -> None:
             conn.execute("PRAGMA foreign_keys = ON")
 
         item_cols = _table_columns(conn, "minuta_items")
+        recreate_for_nullable = False
+        if item_cols:
+            item_meta = conn.execute("PRAGMA table_info(minuta_items)").fetchall()
+            meta_by_name = {row["name"]: row for row in item_meta}
+            g1 = meta_by_name.get("gramos_1_2")
+            g2 = meta_by_name.get("gramos_3_5")
+            if g1 and g2 and (g1["notnull"] == 1 or g2["notnull"] == 1):
+                recreate_for_nullable = True
+
         if not item_cols:
             conn.execute(
                 """
@@ -77,15 +86,15 @@ def init_db() -> None:
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     minuta_id INTEGER NOT NULL,
                     alimento_id INTEGER NOT NULL,
-                    gramos_1_2 REAL NOT NULL CHECK (gramos_1_2 > 0),
-                    gramos_3_5 REAL NOT NULL CHECK (gramos_3_5 > 0),
+                    gramos_1_2 REAL CHECK (gramos_1_2 IS NULL OR gramos_1_2 > 0),
+                    gramos_3_5 REAL CHECK (gramos_3_5 IS NULL OR gramos_3_5 > 0),
                     FOREIGN KEY (minuta_id) REFERENCES minutas(id) ON DELETE CASCADE,
                     FOREIGN KEY (alimento_id) REFERENCES alimentos(id),
                     UNIQUE (minuta_id, alimento_id)
                 )
                 """
             )
-        elif "gramos" in item_cols:
+        elif "gramos" in item_cols or recreate_for_nullable:
             conn.execute("PRAGMA foreign_keys = OFF")
             conn.execute(
                 """
@@ -93,20 +102,28 @@ def init_db() -> None:
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     minuta_id INTEGER NOT NULL,
                     alimento_id INTEGER NOT NULL,
-                    gramos_1_2 REAL NOT NULL CHECK (gramos_1_2 > 0),
-                    gramos_3_5 REAL NOT NULL CHECK (gramos_3_5 > 0),
+                    gramos_1_2 REAL CHECK (gramos_1_2 IS NULL OR gramos_1_2 > 0),
+                    gramos_3_5 REAL CHECK (gramos_3_5 IS NULL OR gramos_3_5 > 0),
                     FOREIGN KEY (minuta_id) REFERENCES minutas(id) ON DELETE CASCADE,
                     FOREIGN KEY (alimento_id) REFERENCES alimentos(id),
                     UNIQUE (minuta_id, alimento_id)
                 )
                 """
             )
-            conn.execute(
-                """
-                INSERT OR IGNORE INTO minuta_items_new(id, minuta_id, alimento_id, gramos_1_2, gramos_3_5)
-                SELECT id, minuta_id, alimento_id, gramos, gramos FROM minuta_items
-                """
-            )
+            if "gramos" in item_cols:
+                conn.execute(
+                    """
+                    INSERT OR IGNORE INTO minuta_items_new(id, minuta_id, alimento_id, gramos_1_2, gramos_3_5)
+                    SELECT id, minuta_id, alimento_id, gramos, gramos FROM minuta_items
+                    """
+                )
+            else:
+                conn.execute(
+                    """
+                    INSERT OR IGNORE INTO minuta_items_new(id, minuta_id, alimento_id, gramos_1_2, gramos_3_5)
+                    SELECT id, minuta_id, alimento_id, gramos_1_2, gramos_3_5 FROM minuta_items
+                    """
+                )
             conn.execute("DROP TABLE minuta_items")
             conn.execute("ALTER TABLE minuta_items_new RENAME TO minuta_items")
             conn.execute("PRAGMA foreign_keys = ON")

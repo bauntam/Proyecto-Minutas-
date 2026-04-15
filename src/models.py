@@ -178,6 +178,13 @@ def _validate_gramos(gramos_1_2: float, gramos_3_5: float) -> None:
         raise ValueError("Los gramos deben ser mayores a 0 para ambos grupos.")
 
 
+def _validate_optional_gramos(value: float | None) -> None:
+    if value is None:
+        return
+    if value <= 0:
+        raise ValueError("Los gramos deben ser mayores a 0.")
+
+
 def add_or_update_item(minuta_id: int, alimento_id: int, gramos_1_2: float, gramos_3_5: float) -> None:
     _validate_gramos(gramos_1_2, gramos_3_5)
     with get_connection() as conn:
@@ -208,6 +215,36 @@ def update_item_gramos(item_id: int, gramos_1_2: float, gramos_3_5: float) -> No
             "UPDATE minuta_items SET gramos_1_2 = ?, gramos_3_5 = ? WHERE id = ?",
             (gramos_1_2, gramos_3_5, item_id),
         )
+        conn.commit()
+
+
+def add_or_update_item_by_group(minuta_id: int, alimento_id: int, grupo: str, gramos: float) -> None:
+    if grupo not in {"g1", "g2"}:
+        raise ValueError("Grupo inválido. Usa 'g1' o 'g2'.")
+    _validate_optional_gramos(gramos)
+    column = "gramos_1_2" if grupo == "g1" else "gramos_3_5"
+
+    with get_connection() as conn:
+        existing = conn.execute(
+            "SELECT id, gramos_1_2, gramos_3_5 FROM minuta_items WHERE minuta_id = ? AND alimento_id = ?",
+            (minuta_id, alimento_id),
+        ).fetchone()
+
+        if existing:
+            conn.execute(
+                f"UPDATE minuta_items SET {column} = ? WHERE id = ?",
+                (gramos, existing["id"]),
+            )
+        else:
+            gramos_1_2 = gramos if grupo == "g1" else None
+            gramos_3_5 = gramos if grupo == "g2" else None
+            conn.execute(
+                """
+                INSERT INTO minuta_items(minuta_id, alimento_id, gramos_1_2, gramos_3_5)
+                VALUES (?, ?, ?, ?)
+                """,
+                (minuta_id, alimento_id, gramos_1_2, gramos_3_5),
+            )
         conn.commit()
 
 

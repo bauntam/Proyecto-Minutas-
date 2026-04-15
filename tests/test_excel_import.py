@@ -108,6 +108,61 @@ class ExcelImportTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Faltan: gramos_grupo_2"):
             excel_minutas.import_minutas(output)
 
+    def test_group_import_allows_loading_each_age_group_separately(self) -> None:
+        minuta_id = models.create_minuta("Minuta 1")
+        xlsx = self._build_group_workbook(
+            [
+                ["Arroz", 33],
+                ["Frijol rojo", 44],
+            ]
+        )
+
+        summary = excel_minutas.import_minuta_group(xlsx, minuta_id=minuta_id, grupo="g1")
+
+        self.assertEqual(summary.rows_imported, 2)
+        rows = {row["alimento_nombre"]: row for row in models.list_minuta_items(minuta_id)}
+        self.assertEqual(rows["Arroz"]["gramos_1_2"], 33)
+        self.assertIsNone(rows["Arroz"]["gramos_3_5"])
+        self.assertEqual(rows["Frijol rojo"]["gramos_1_2"], 44)
+        self.assertIsNone(rows["Frijol rojo"]["gramos_3_5"])
+
+    def test_group_import_can_map_unknown_foods(self) -> None:
+        minuta_id = models.create_minuta("Minuta 1")
+        xlsx = self._build_group_workbook(
+            [
+                ["Pimenton", 20],
+                ["Frijol", 10],
+            ]
+        )
+
+        summary = excel_minutas.import_minuta_group(
+            xlsx,
+            minuta_id=minuta_id,
+            grupo="g2",
+            food_mapping={"Frijol": "Lenteja"},
+        )
+
+        self.assertEqual(summary.rows_imported, 2)
+        rows = {row["alimento_nombre"]: row for row in models.list_minuta_items(minuta_id)}
+        self.assertEqual(rows["Pimentón"]["gramos_3_5"], 20)
+        self.assertEqual(rows["Lenteja"]["gramos_3_5"], 10)
+
+    def _build_group_workbook(self, rows: list[list[object]]) -> Path:
+        try:
+            from openpyxl import Workbook
+        except ModuleNotFoundError as exc:
+            self.skipTest(f"openpyxl no disponible: {exc}")
+
+        output = Path(self._tmpdir.name) / "minutas_group_test.xlsx"
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "MinutaGrupo"
+        ws.append(excel_minutas.GROUP_HEADERS)
+        for row in rows:
+            ws.append(row)
+        wb.save(output)
+        return output
+
 
 if __name__ == "__main__":
     unittest.main()

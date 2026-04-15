@@ -118,11 +118,13 @@ class MinutaEditorWindow(tk.Toplevel):
         for item in self.tree.get_children():
             self.tree.delete(item)
         for row in self._items:
+            g1 = "" if row["gramos_1_2"] is None else row["gramos_1_2"]
+            g2 = "" if row["gramos_3_5"] is None else row["gramos_3_5"]
             self.tree.insert(
                 "",
                 "end",
                 iid=str(row["id"]),
-                values=(row["alimento_nombre"], row["gramos_1_2"], row["gramos_3_5"]),
+                values=(row["alimento_nombre"], g1, g2),
             )
 
     def add_item(self) -> None:
@@ -256,8 +258,13 @@ class MinutasWindow(tk.Toplevel):
         ttk.Button(top, text="Nueva minuta", command=self.nueva_minuta).pack(side="left")
         ttk.Button(top, text="Abrir minuta", command=self.abrir_minuta).pack(side="left", padx=(8, 0))
         ttk.Button(top, text="Eliminar minuta", command=self.eliminar_minuta).pack(side="left", padx=(8, 0))
-        ttk.Button(top, text="Descargar plantilla Excel", command=self.descargar_plantilla).pack(side="left", padx=(8, 0))
-        ttk.Button(top, text="Importar Excel", command=self.importar_excel).pack(side="left", padx=(8, 0))
+        ttk.Button(top, text="Plantilla grupo", command=self.descargar_plantilla_grupo).pack(side="left", padx=(8, 0))
+        ttk.Button(top, text="Importar pequeños", command=lambda: self.importar_excel_por_grupo("g1")).pack(
+            side="left", padx=(8, 0)
+        )
+        ttk.Button(top, text="Importar grandes", command=lambda: self.importar_excel_por_grupo("g2")).pack(
+            side="left", padx=(8, 0)
+        )
 
         self.counter_var = tk.StringVar()
         ttk.Label(top, textvariable=self.counter_var).pack(side="right")
@@ -321,25 +328,81 @@ class MinutasWindow(tk.Toplevel):
         except Exception:
             messagebox.showerror("Error", "No fue posible eliminar la minuta.", parent=self)
 
-    def descargar_plantilla(self) -> None:
+    def descargar_plantilla_grupo(self) -> None:
         file_path = filedialog.asksaveasfilename(
             parent=self,
             title="Guardar plantilla",
             defaultextension=".xlsx",
             filetypes=[("Excel", "*.xlsx")],
-            initialfile="plantilla_minutas.xlsx",
+            initialfile="plantilla_minuta_grupo.xlsx",
         )
         if not file_path:
             return
         try:
-            excel_minutas.export_template(file_path)
+            excel_minutas.export_group_template(file_path)
             messagebox.showinfo("Plantilla creada", f"Plantilla guardada en:\n{file_path}", parent=self)
         except RuntimeError as exc:
             messagebox.showerror("Dependencia faltante", str(exc), parent=self)
         except Exception:
             messagebox.showerror("Error", "No fue posible generar la plantilla Excel.", parent=self)
 
-    def importar_excel(self) -> None:
+    def _resolver_alimentos_no_detectados(self, unknown_foods: list[str]) -> dict[str, str]:
+        alimentos = models.list_alimentos()
+        nombres = [a["nombre"] for a in alimentos]
+
+        dialog = tk.Toplevel(self)
+        dialog.title("Relacionar alimentos no detectados")
+        dialog.geometry("760x460")
+        dialog.transient(self)
+        dialog.grab_set()
+
+        root = ttk.Frame(dialog, padding=12)
+        root.pack(fill="both", expand=True)
+        ttk.Label(
+            root,
+            text=(
+                "No se detectaron algunos alimentos. "
+                "Selecciona el alimento equivalente del catálogo o deja vacío para omitirlo."
+            ),
+            wraplength=720,
+        ).pack(anchor="w")
+
+        container = ttk.Frame(root)
+        container.pack(fill="both", expand=True, pady=(10, 8))
+
+        variables: dict[str, tk.StringVar] = {}
+        for row_idx, unknown in enumerate(unknown_foods):
+            ttk.Label(container, text=unknown).grid(row=row_idx, column=0, sticky="w", pady=2)
+            var = tk.StringVar(value="")
+            ttk.Combobox(container, textvariable=var, values=nombres, state="readonly", width=50).grid(
+                row=row_idx,
+                column=1,
+                sticky="we",
+                padx=(8, 0),
+                pady=2,
+            )
+            variables[unknown] = var
+
+        container.grid_columnconfigure(1, weight=1)
+        selected = {"result": {}}
+
+        def aceptar() -> None:
+            selected["result"] = {k: v.get() for k, v in variables.items() if v.get().strip()}
+            dialog.destroy()
+
+        actions = ttk.Frame(root)
+        actions.pack(fill="x")
+        ttk.Button(actions, text="Cancelar", command=dialog.destroy).pack(side="right")
+        ttk.Button(actions, text="Aplicar", command=aceptar).pack(side="right", padx=(0, 8))
+
+        dialog.wait_window()
+        return selected["result"]
+
+    def importar_excel_por_grupo(self, grupo: str) -> None:
+        minuta_id = self._selected_minuta_id()
+        if minuta_id is None:
+            return
+
         file_path = filedialog.askopenfilename(
             parent=self,
             title="Seleccionar archivo Excel",
@@ -347,16 +410,28 @@ class MinutasWindow(tk.Toplevel):
         )
         if not file_path:
             return
+
+        grupo_label = "niños pequeños (1-2 años)" if grupo == "g1" else "niños grandes (3-5 años)"
+
         try:
-            summary = excel_minutas.import_minutas(file_path)
+            summary = excel_minutas.import_minuta_group(file_path, minuta_id=minuta_id, grupo=grupo)
+            if summary.unknown_foods:
+                mapping = self._resolver_alimentos_no_detectados(summary.unknown_foods)
+                if mapping:
+                    summary = excel_minutas.import_minuta_group(
+                        file_path,
+                        minuta_id=minuta_id,
+                        grupo=grupo,
+                        food_mapping=mapping,
+                    )
+
             self.refresh()
             message = (
+                f"Grupo importado: {grupo_label}\n\n"
                 f"Filas leídas no vacías: {summary.rows_processed}\n"
                 f"Filas importadas: {summary.rows_imported}\n"
-                f"Minutas creadas: {summary.minutas_created}\n"
-                f"Filas actualizadas en minutas existentes: {summary.minutas_updated}\n"
                 f"Alimentos detectados: {summary.foods_detected}\n"
-                f"Alimentos cargados/actualizados: {summary.items_upserted}"
+                f"Alimentos cargados/actualizados: {summary.rows_imported}"
             )
             if summary.empty_food_rows:
                 message += f"\n\nFilas con alimento vacío ignoradas: {summary.empty_food_rows}"

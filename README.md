@@ -23,9 +23,9 @@ Está pensada para una primera entrega usable y estable.
   - Consolidación por alimento sumando minutas repetidas y cálculo de totales.
 
 - **Minutas (importación por Excel)**
-  - Descargar plantilla `.xlsx` con alimentos en orden alfabético.
-  - Importar minutas masivamente desde Excel (nombre de minuta + gramos para 2 grupos etarios).
-  - Compara el nombre del alimento contra el catálogo y carga los gramos automáticamente.
+  - Descargar plantilla `.xlsx` por grupo etario (`alimento`, `gramos`).
+  - Importar gramajes por separado para **niños pequeños (1-2)** y **niños grandes (3-5)**.
+  - Resolver alimentos no detectados relacionándolos manualmente con el catálogo.
 - **Persistencia local**
   - SQLite en `data/minutas.db`.
   - Los datos se conservan al cerrar y volver a abrir la app.
@@ -111,22 +111,20 @@ python src\seed.py
 
 ## Importar minutas desde Excel
 
-En **Gestión de minutas** ahora hay dos botones:
+En **Gestión de minutas** ahora hay botones para importación diferenciada por grupo:
 
-- **Descargar plantilla Excel**: genera un archivo con columnas:
-  - `minuta`
+- **Plantilla grupo**: genera un archivo con columnas:
   - `alimento`
-  - `gramos_grupo_1`
-  - `gramos_grupo_2`
-- **Importar Excel**: lee el archivo y crea/actualiza minutas y gramos para ambos grupos etarios.
+  - `gramos`
+- **Importar pequeños**: carga sólo la columna de gramos del grupo 1-2 años.
+- **Importar grandes**: carga sólo la columna de gramos del grupo 3-5 años.
 
 Reglas:
 
-- Los nombres de alimentos deben coincidir con el catálogo (comparación por texto normalizado).
-- Cada fila representa un alimento dentro de una minuta.
-- Si la minuta no existe, se crea automáticamente.
-- Si la minuta ya existe, se actualizan sus alimentos.
-- Los gramos de ambos grupos deben ser números mayores a 0.
+- Primero selecciona una minuta y luego importa el archivo del grupo deseado.
+- Los nombres de alimentos se comparan con normalización (espacios/tildes/mayúsculas).
+- Si un alimento no se detecta, la app permite mapearlo manualmente a un alimento del catálogo.
+- Los gramos deben ser números mayores a 0.
 
 
 ## Cómo generar pedido semanal
