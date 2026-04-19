@@ -53,8 +53,8 @@ class ExcelImportTest(unittest.TestCase):
             [
                 ["Minuta 1", "  Pimenton  ", 10, 15],
                 ["Minuta 1", "Limon", 5, 5],
-                ["Minuta 1", "Pasta  spaguetti", 20, 30],
-                ["Minuta 1", "Banano comun, maduro", 8, 9],
+                ["Minuta 1", "  spaguetti ", 20, 30],
+                ["Minuta 1", "Banano comun", 8, 9],
             ]
         )
 
@@ -70,8 +70,8 @@ class ExcelImportTest(unittest.TestCase):
         imported_items = {row["alimento_nombre"] for row in models.list_minuta_items(minuta_id)}
         self.assertIn("Pimentón", imported_items)
         self.assertIn("Limón", imported_items)
-        self.assertIn("Pasta spaguetti", imported_items)
-        self.assertIn("Banano común, maduro", imported_items)
+        self.assertIn("Spaguetti", imported_items)
+        self.assertIn("Banano común", imported_items)
 
     def test_import_reports_unknown_foods_and_keeps_valid_rows(self) -> None:
         xlsx = self._build_workbook(
